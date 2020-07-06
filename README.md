@@ -4,6 +4,12 @@ Dockerfile is unchanged as given by the organizers at
 
 [https://github.com/icfpcontest2020/dockerfiles/blob/master/dockerfiles/rust/Dockerfile]
 
+## Fetching vendored dependencies
+
+The following command will fetch vendored dependencies
+
+$ cargo vendor
+
 ## Building the Docker 
 
 The following will rebuild the Docker image, copy in our Rust project and all
@@ -15,6 +21,11 @@ This will create a new Docker image with a new image ID (which is some hash
 value), and will consume a bit more disk space in excess of the base Rust image.
 
 The ID is emitted in the last line of the build process.
+
+It is also possible to add a tag to the image, which can be used to reference
+the image. For instance, the following command will add a hello-world tag.
+
+$ docker build . -t hello-world
 
 ## Inspecting built Docker images
 
@@ -28,6 +39,10 @@ $ docker images -a
 Use the above command to get the ID of the latest build. Then run
 
 $ docker run <ID>
+
+or
+
+$ docker run <TAG>
 
 ## Deleting old Docker images
 
