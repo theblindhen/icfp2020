@@ -15,34 +15,20 @@ The following command will fetch vendored dependencies
 The following will rebuild the Docker image, copy in our Rust project and all
 vendored dependencies, and rebuild that inside the Docker.
 
-    $ docker build .
+    $ docker build -t icfp20 .
 
-This will create a new Docker image with a new image ID (which is some hash
-value), and will consume a bit more disk space in excess of the base Rust image.
+The tag `icfp20` is used in later commands to refer to this image.
 
-The ID is emitted in the last line of the build process.
+## Running our solution inside Docker
 
-It is also possible to add a tag to the image, which can be used to reference
-the image. For instance, the following command will add a hello-world tag.
-
-    $ docker build . -t hello-world
+    $ docker run --rm icfp20
 
 ## Inspecting built Docker images
 
 This will list the ID of each image. The top one is usually the one you most
 recently built:
 
-    $ docker images -a
-
-## Running our solution inside Docker
-
-Use the above command to get the ID of the latest build. Then run
-
-    $ docker run <ID>
-
-or
-
-    $ docker run <TAG>
+    $ docker images
 
 ## Deleting old Docker images
 
