@@ -1,4 +1,4 @@
 #!/bin/sh
-set -ax
 
+cd app
 cargo build --release --offline
