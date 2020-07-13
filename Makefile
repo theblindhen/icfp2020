@@ -3,7 +3,7 @@ all:
 	@echo Use \`make submission\` to submit.
 
 submission:
-	git co submission
+	git checkout submission
 	git merge master
-	git co master
+	git checkout master
 	git push origin submission
