@@ -1,0 +1,22 @@
+name: Rust
+
+on:
+  push:
+    branches: [ master, submission ]
+  pull_request:
+    branches: [ master, submission ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  repo_action_job:
+    runs-on: ubuntu-latest
+    name: Run the main action in this repo
+    steps:
+      # To use this repository's private action,
+      # you must check out the repository
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build and run
+        uses: ./ # Uses an action in the root directory

@@ -1,0 +1,5 @@
+name: 'Run the app'
+description: 'Builds and runs the main app'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
