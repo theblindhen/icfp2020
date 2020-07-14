@@ -23,6 +23,10 @@ The tag `icfp20` is used in later commands to refer to this image.
 
     $ docker run --rm icfp20
 
+## Running a shell inside Docker
+
+    $ docker run --rm -it --entrypoint /bin/bash icfp20
+
 ## Inspecting built Docker images
 
 This will list the ID of each image. The top one is usually the one you most
