@@ -13,4 +13,5 @@ path = "app/main.rs"
 [dependencies]
 crossbeam-channel = "0.4.2"
 ureq = { version = "*", default-features = false, features = ["json"] }
-serde = { version = "1.0.114", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { version = "1.0" }
