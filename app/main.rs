@@ -13,12 +13,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // requires setting a User-Agent header, which means we can't use the `reqwest::blocking::get`
     // convenience function.
     let repos : Vec<Repo> =
-        reqwest::blocking::Client::builder()
-            .user_agent("Reqwest")
-            .build()?
-            .get("https://api.github.com/orgs/theblindhen/repos")
-            .send()?
-            .json().unwrap();
+        ureq::get("https://api.github.com/orgs/theblindhen/repos")
+            .set("User-Agent", "Reqwest")
+            .timeout(std::time::Duration::from_secs(30))
+            .call()
+            .into_json_deserialize().unwrap();
     println!("{:#?}", repos);
     Ok(())
 }
