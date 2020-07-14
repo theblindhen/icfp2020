@@ -2,4 +2,5 @@ name: 'Run the app'
 description: 'Builds and runs the main app'
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'docker://icfpcontest2020/rust'
+  entrypoint: './tests.sh'
