@@ -4,6 +4,8 @@ use serde_json::Value;
 
 use structopt::StructOpt;
 use std::path::PathBuf;
+use std::io::BufReader;
+use std::fs::File;
 
 use log::*;
 
@@ -24,7 +26,7 @@ struct MyOpt {
     timeout: u32,
 
     /// Input file
-    #[structopt(name = "MAP", default_value = "my.map", parse(from_os_str))]
+    #[structopt(name = "MAP", default_value = "repos.json", parse(from_os_str))]
     file: PathBuf,
 }
 
@@ -39,7 +41,7 @@ struct Repo {
 }
 
 // Demonstrates sending an HTTP request and decoding the response as JSON.
-fn http_json() -> Result<(), Box<dyn std::error::Error>> {
+fn http_json() -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
     println!("Sending request...");
 
     let json : Value =
@@ -48,10 +50,15 @@ fn http_json() -> Result<(), Box<dyn std::error::Error>> {
             .call()
             .into_json_deserialize().unwrap();
 
-    let repos : Vec<Repo> = serde_json::from_value(json)?;
-    println!("{:#?}", repos);
+    Ok(serde_json::from_value(json)?)
+}
 
-    Ok(())
+fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    // Read the JSON contents of the file as an instance of `User`.
+    let json = serde_json::from_reader(reader)?;
+    Ok(json)
 }
 
 fn main() {
@@ -74,19 +81,12 @@ fn main() {
         .filter_level(level)
         .init();
 
+    
     error!("You are seeing errors");
     warn!("You are seeing warnings");
     info!("You are seeing info");
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
-
-
-
-    // let level_filter = match opt.verbose {
-    //     1 => LevelFilter::Debug,
-    //     2 => LevelFilter::Trace,
-    //     _ => LevelFilter::Info,
-    // };
 
     if opt.interactive { 
         println!("\nYou asked for INTERACTIVE mode");
@@ -94,12 +94,15 @@ fn main() {
         println!("\nYou asked for NON-INTERACTIVE mode");
     }
 
-
-
-
-
     match http_json() {
         Err(_) => println!("\nThere was an error with the HTTP request or JSON parsing"),
-        Ok(()) => ()
+        Ok(repos) =>
+            println!("{:#?}", repos)
+    }
+
+    match file_json(opt.file) {
+        Err(_) => println!("\nThere was an error with reading the JSON file"),
+        Ok(repos) =>
+            println!("{:#?}", repos)
     }
 }
