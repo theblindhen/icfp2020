@@ -1,4 +1,5 @@
 use crate::aplang::*;
+use crate::aplang::ap;
 
 use std::collections::HashMap;
 
@@ -57,7 +58,7 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
                             break;
                         },
                         Some(PendingRight(left)) => {
-                            top = reduce_aptree(ApTree::Ap(Box::new((left, top))), &env);
+                            top = reduce_aptree(ap(left, top), &env);
                         }
                         Some(Tree(_)) => {
                             panic!("Pushed a tree on a tree");

@@ -103,18 +103,18 @@ pub fn get_arity(tree: &ApTree) -> ApArity {
 }
 
 
-fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
+pub fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
     return ApTree::Ap(Box::from((arg1, arg2)));
 }
 
-fn nil() -> ApTree {
+pub fn nil() -> ApTree {
     return ApTree::T(Token::Nil);
 }
 
-fn cons(head: ApTree, tail: ApTree) -> ApTree {
+pub fn cons(head: ApTree, tail: ApTree) -> ApTree {
     return ap(ap(ApTree::T(Token::Cons), head), tail);
 }
 
-fn int(val: i32) -> ApTree {
+pub fn int(val: i32) -> ApTree {
     return ApTree::T(Token::Int(val));
 }
