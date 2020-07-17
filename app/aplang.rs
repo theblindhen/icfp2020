@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Var (i32);
+pub struct Var (pub i32);
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
