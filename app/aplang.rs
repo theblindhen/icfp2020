@@ -1,8 +1,10 @@
 // Lexer types
 use std::collections::HashMap;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Var (i32);
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
     // Constants
     True,
@@ -44,6 +46,7 @@ pub enum Token {
 
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
     Ap,
     // OpenList,
