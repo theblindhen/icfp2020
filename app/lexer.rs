@@ -68,9 +68,9 @@ fn word(input: &str) -> IResult<&str, Word> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use Word::*;
-    use Token::*;
     use crate::aplang::Var;
+    use Token::*;
+    use Word::*;
 
     #[test]
     fn test_variable() {
@@ -88,8 +88,26 @@ mod test {
 
     #[test]
     fn test_assignment() {
-        assert_eq!(assignment(":1 = 2"),
-            Ok(("", (Var(1), vec![WT(Int(2))]))));
-        //assert_eq!(assignment(":1030 = ap ap cons 2 ap ap cons 7 nil"),
+        assert_eq!(assignment(":1 = 2"), Ok(("", (Var(1), vec![WT(Int(2))]))));
+        assert_eq!(
+            assignment(":1030 = ap ap cons 2 ap ap cons 7 nil"),
+            Ok((
+                "",
+                (
+                    Var(1030),
+                    vec![
+                        WAp,
+                        WAp,
+                        WT(Cons),
+                        WT(Int(2)),
+                        WAp,
+                        WAp,
+                        WT(Cons),
+                        WT(Int(7)),
+                        WT(Nil),
+                    ]
+                )
+            ))
+        );
     }
 }
