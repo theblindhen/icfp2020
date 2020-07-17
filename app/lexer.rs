@@ -38,7 +38,10 @@ fn assignment(line: &str) -> IResult<&str, Assignment> {
 
 fn variable(s: &str) -> IResult<&str, Var> {
     n::map(
-        n::map_res(n::preceded(n::tag(":"), decint), |s: &str| s.parse()),
+        n::alt((
+            n::map_res(n::preceded(n::tag(":"), decint), |s: &str| s.parse()),
+            n::value(-1, n::tag("galaxy")),
+        )),
         Var,
     )(s)
 }
@@ -53,6 +56,8 @@ fn decint(input: &str) -> IResult<&str, &str> {
 
 fn token(input: &str) -> IResult<&str, Token> {
     use Token::*;
+
+    // In galaxy.txt: add ap b c car cdr cons div eq i isnil lt mul neg nil s t
 
     n::alt((
         n::map(n::map_res(decint, |s: &str| s.parse()), Int),
@@ -84,11 +89,13 @@ mod test {
         assert_eq!(word("nil"), Ok(("", WT(Nil))));
         assert_eq!(word("123"), Ok(("", WT(Int(123)))));
         assert_eq!(word("-111"), Ok(("", WT(Int(-111)))));
+        assert_eq!(word("560803991675135"), Ok(("", WT(Int(560803991675135)))));
     }
 
     #[test]
     fn test_assignment() {
         assert_eq!(assignment(":1 = 2"), Ok(("", (Var(1), vec![WT(Int(2))]))));
+        assert_eq!(assignment("galaxy = 42"), Ok(("", (Var(-1), vec![WT(Int(42))]))));
         assert_eq!(
             assignment(":1030 = ap ap cons 2 ap ap cons 7 nil"),
             Ok((
