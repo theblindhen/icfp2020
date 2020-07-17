@@ -8,17 +8,62 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
     use ApTree::*;
     use ApArity::*;
     match get_arity(&tree) {
+        // TOKENS AND VARS
         ZeroAry(token) => {
             //TODO: Collapse vars
             T(token)
         },
 
+        // UNARY INTEGER OPERATORS
         Unary(Inc, T(Int(n))) => int (n+1),
         Unary(Dec, T(Int(n))) => int (n-1),
         Unary(Modulate, T(Int(n))) => { panic!("Unimplemented Modulate") },
         Unary(Demodulate, T(Int(n))) => { panic!("Unimplemented Demodulate") },
         Unary(Neg, T(Int(n))) => int (-n),
         Unary(Pwr2, T(Int(n))) => { panic!("Unimplemented Pwr2") },
+
+        // BINARY INTEGER OPERATORS
+        Binary(Add, T(Int(a)), T(Int(b))) => int(a+b),
+        Binary(Multiply, T(Int(a)), T(Int(b))) => int(a*b),
+        Binary(Div, T(Int(a)), T(Int(b))) => int(a/b), //TODO: Correct?
+
+        // COMPARISON ON INTEGERS
+        // TODO: Equality on variables? On deep expressions?
+        Binary(Eq, T(Int(a)), T(Int(b))) => {
+            if a == b {
+                T(True)
+            } else {
+                T(False)
+            }
+        },
+        Binary(Lt, T(Int(a)), T(Int(b))) => {
+            if a < b {
+                T(True)
+            } else {
+                T(False)
+            }
+        },
+
+        // COMBINATORS
+        Ternary(S, x, y, z) => {
+            let xz = reduce_aptree(ap(x.clone(), z.clone()), &env);
+            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
+            reduce_aptree(ap(xz, yz), &env)
+        },
+        // S
+        // C
+        // B
+        // I
+        Unary(I, arg) => (*arg).clone(), //WUHUU!
+        // If0
+
+        // LISTS
+        // Cons
+        // Car
+        // Cdr
+        // Vec
+        // Nil
+        // IsNil
         Unary(IsNil, arg) => {
             match get_arity(&arg) {
                 Binary(Cons, _, _) => T(False),
@@ -26,7 +71,16 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
             }
         }
         Unary(IsNil, T(Nil)) => T(True),
-        // TODO: Unary(IsNil, Cons) => T(True),
+
+        // DRAWING
+        //Draw
+        //Checkerboard
+        //DrawList
+
+        // PROTOCOL
+        //Send
+
+        
 
         _ => tree
     }

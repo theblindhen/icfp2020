@@ -91,7 +91,6 @@ fn main() {
         .filter_level(level)
         .init();
 
-    
     error!("You are seeing errors");
     warn!("You are seeing warnings");
     info!("You are seeing info");
