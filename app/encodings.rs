@@ -28,11 +28,25 @@ fn modulate_int(mut val: i64) -> String {
 }
 
 fn demodulate_int(s: &str) -> (i64, &str) {
-    match s.find('0') {
+    let sign =
+        match &s[0..2] {
+            "10" => -1,
+            "01" => 1,
+            _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
+        };
+
+    let mut remainder = &s[2..];
+
+    match remainder.find('0') {
         Some(n) => {
             let width = n * 4;
-            let tmp = i64::from_str_radix(&s[n+1..n+1+width], 2).unwrap();
-            return (tmp, &s[n+2+width..])
+            if width > 0 {
+                remainder = &remainder[n+1..];
+                let tmp = i64::from_str_radix(&remainder[0..width], 2).unwrap();
+                return (sign * tmp, &remainder[width..])
+            } else {
+                return (0, &remainder[1..])
+            }
         },
         _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
     }
@@ -52,15 +66,9 @@ fn demodulate(s: &str) -> (ApTree, &str) {
         },
 
         // neg
-        "10" => {
-            let (val, remainder) = demodulate_int(&s[2..]);
-            (int(-val), remainder)
-        },
-
-        // pos
-        "01" => {
-            let (val, remainder) = demodulate_int(&s[2..]);
-            (int(val), remainder)
+        "10" | "01" => {
+            let (i, remainder) = demodulate_int(s);
+            (int(i), remainder)
         },
 
         _ => panic!("cannot demodulate: {:?}", s)
@@ -128,6 +136,23 @@ mod test {
     }
 
     #[test]
+    fn test_demodulate_int() {
+        assert_eq!(demodulate_int("010"), (0, ""));
+        assert_eq!(demodulate_int("01100001"), (1, ""));
+        assert_eq!(demodulate_int("10100001"), (-1, ""));
+        assert_eq!(demodulate_int("01100010"), (2, ""));
+        assert_eq!(demodulate_int("10100010"), (-2, ""));
+
+        assert_eq!(demodulate_int("0111000010000"), (16, ""));
+        assert_eq!(demodulate_int("1011000010000"), (-16, ""));
+
+        assert_eq!(demodulate_int("0111011111111"), (255, ""));
+        assert_eq!(demodulate_int("1011011111111"), (-255, ""));
+        assert_eq!(demodulate_int("011110000100000000"), (256, ""));
+        assert_eq!(demodulate_int("101110000100000000"), (-256, ""));
+    }
+
+    #[test]
     fn test_modulate() {
         assert_eq!(modulate(&nil()), "00");
         assert_eq!(modulate(&cons(nil(), nil())), "110000");
@@ -142,5 +167,18 @@ mod test {
             modulate(&cons(int(1), cons(inner_list, cons(int(4), nil())))),
             "1101100001111101100010110110001100110110010000"
         );
+    }
+    
+    #[test]
+    fn test_demodulate() {
+        assert_eq!(demodulate("00"), (nil(), ""));
+        assert_eq!(demodulate("110000"), (cons(nil(), nil()), ""));
+        assert_eq!(demodulate("1101000"), (cons(int(0), nil()), ""));
+        assert_eq!(demodulate("110110000101100010"), (cons(int(1), int(2)), ""));
+        assert_eq!(demodulate("1101100001110110001000"), 
+            (cons(int(1), cons(int(2), nil())), ""));
+        let inner_list = cons(int(2), cons(int(3), nil()));
+        assert_eq!(demodulate("1101100001111101100010110110001100110110010000"),
+            (cons(int(1), cons(inner_list, cons(int(4), nil()))), ""));
     }
 }
