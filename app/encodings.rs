@@ -27,6 +27,52 @@ fn modulate_int(mut val: i64) -> String {
     return encoding;
 }
 
+fn demodulate_int(s: &str) -> (i64, &str) {
+    let sign = match &s[0..2] {
+        "10" => -1,
+        "01" => 1,
+        _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
+    };
+
+    let mut remainder = &s[2..];
+
+    match remainder.find('0') {
+        Some(n) => {
+            let width = n * 4;
+            if width > 0 {
+                remainder = &remainder[n + 1..];
+                let tmp = i64::from_str_radix(&remainder[0..width], 2).unwrap();
+                return (sign * tmp, &remainder[width..]);
+            } else {
+                return (0, &remainder[1..]);
+            }
+        }
+        _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
+    }
+}
+
+fn demodulate(s: &str) -> (ApTree, &str) {
+    match &s[0..2] {
+        // nil
+        "00" => (nil(), &s[2..]),
+
+        // cons
+        "11" => {
+            let (head, remainder1) = demodulate(&s[2..]);
+            let (tail, remainder2) = demodulate(remainder1);
+            (cons(head, tail), remainder2)
+        }
+
+        // neg
+        "10" | "01" => {
+            let (i, remainder) = demodulate_int(s);
+            (int(i), remainder)
+        }
+
+        _ => panic!("cannot demodulate: {:?}", s),
+    }
+}
+
 fn modulate(tree: &ApTree) -> String {
     match tree {
         ApTree::T(Token::Int(val)) => return modulate_int(*val),
@@ -87,20 +133,21 @@ mod test {
         assert_eq!(modulate_int(-256), "101110000100000000");
     }
 
-    fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
-        return ApTree::Ap(Box::from((arg1, arg2)));
-    }
+    #[test]
+    fn test_demodulate_int() {
+        assert_eq!(demodulate_int("010"), (0, ""));
+        assert_eq!(demodulate_int("01100001"), (1, ""));
+        assert_eq!(demodulate_int("10100001"), (-1, ""));
+        assert_eq!(demodulate_int("01100010"), (2, ""));
+        assert_eq!(demodulate_int("10100010"), (-2, ""));
 
-    fn nil() -> ApTree {
-        return ApTree::T(Token::Nil);
-    }
+        assert_eq!(demodulate_int("0111000010000"), (16, ""));
+        assert_eq!(demodulate_int("1011000010000"), (-16, ""));
 
-    fn cons(head: ApTree, tail: ApTree) -> ApTree {
-        return ap(ap(ApTree::T(Token::Cons), head), tail);
-    }
-
-    fn int(val: i64) -> ApTree {
-        return ApTree::T(Token::Int(val));
+        assert_eq!(demodulate_int("0111011111111"), (255, ""));
+        assert_eq!(demodulate_int("1011011111111"), (-255, ""));
+        assert_eq!(demodulate_int("011110000100000000"), (256, ""));
+        assert_eq!(demodulate_int("101110000100000000"), (-256, ""));
     }
 
     #[test]
@@ -117,6 +164,22 @@ mod test {
         assert_eq!(
             modulate(&cons(int(1), cons(inner_list, cons(int(4), nil())))),
             "1101100001111101100010110110001100110110010000"
+        );
+    }
+    #[test]
+    fn test_demodulate() {
+        assert_eq!(demodulate("00"), (nil(), ""));
+        assert_eq!(demodulate("110000"), (cons(nil(), nil()), ""));
+        assert_eq!(demodulate("1101000"), (cons(int(0), nil()), ""));
+        assert_eq!(demodulate("110110000101100010"), (cons(int(1), int(2)), ""));
+        assert_eq!(
+            demodulate("1101100001110110001000"),
+            (cons(int(1), cons(int(2), nil())), "")
+        );
+        let inner_list = cons(int(2), cons(int(3), nil()));
+        assert_eq!(
+            demodulate("1101100001111101100010110110001100110110010000"),
+            (cons(int(1), cons(inner_list, cons(int(4), nil()))), "")
         );
     }
 }
