@@ -1,6 +1,6 @@
 use crate::aplang::*;
 
-fn modulate_int(mut val: i32) -> String {
+fn modulate_int(mut val: i64) -> String {
     let mut encoding = String::from("");
 
     // encode sign
@@ -44,7 +44,7 @@ fn modulate(tree: &ApTree) -> String {
     }
 }
 
-fn int_width(val: i32) -> i32 {
+fn int_width(val: i64) -> i32 {
     assert!(val >= 0);
 
     let mut width = 0;
@@ -99,7 +99,7 @@ mod test {
         return ap(ap(ApTree::T(Token::Cons), head), tail);
     }
 
-    fn int(val: i32) -> ApTree {
+    fn int(val: i64) -> ApTree {
         return ApTree::T(Token::Int(val));
     }
 
