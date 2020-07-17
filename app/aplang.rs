@@ -48,11 +48,11 @@ pub enum Token {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
-    Ap,
+    WAp,
     // OpenList,
     // ListSep,
     // CloseList,
-    Token(Token),
+    WT(Token),
 }
 
 
@@ -77,7 +77,15 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
         Ap(ap_arms) => {
             match **ap_arms {
                 // Unary Ops
-                (T(Inc), T(Int(n))) => T(Int(n+1)),
+                (T(Inc),   T(Int(n))) => T(Int(n+1)),
+                // (T(IsNil), T(
+                // Isnil, neg
+
+                // Binary Ops
+                // add, car, cons, div, eq, lt, mul
+
+                // Ternary Ops
+                // I, S
                 _ => tree
             }
         },
@@ -98,12 +106,13 @@ type PartialStack = Vec<ApPartial>;
 type Env = HashMap<Var, ApTree>;
 
 fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
+    use Word::*;
     use ApPartial::*;
     let mut stack = PartialStack::default();
     for token in words {
         match token {
-            Word::Ap => stack.push(PendingBoth),
-            Word::Token(t) => {
+            WAp => stack.push(PendingBoth),
+            WT(t) => {
                 let mut top = ApTree::T(*t);
                 loop {
                     match stack.pop() {
@@ -155,13 +164,14 @@ mod test {
     use super::*;
     use ApTree::*;
     use Token::*;
+    use Word::*;
 
     #[test]
     fn test_interpret_words() {
         let env = Env::default();
-        assert_eq!(interpret_words(&vec![Word::Token(Int(1))], &env),
+        assert_eq!(interpret_words(&vec![WT(Int(1))], &env),
                    T(Int(1)));
-        assert_eq!(interpret_words(&vec![Word::Ap, Word::Token(Add), Word::Token(Int(1))], &env),
+        assert_eq!(interpret_words(&vec![WAp, WT(Add), WT(Int(1))], &env),
                    Ap(Box::new((T(Add), T(Int(1))))));
     }
       
