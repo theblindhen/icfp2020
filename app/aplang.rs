@@ -54,7 +54,7 @@ pub enum Word {
 
 pub type Assignment = (Var, Vec<Word>);
 
-pub type Program = Vec<Assignments>;
+pub type Program = Vec<Assignment>;
 
 
 // Interpreter types
@@ -73,3 +73,19 @@ pub enum ApPartial {
 pub type ApStack = Vec<ApPartial>;
 
 type Env = Map<Var, ApTree>;
+
+fn interpret_expr(expr: Vec<Words>) -> ApTree {
+    for 
+
+}
+
+// Returns the final environment and the last-assigned variable
+fn interpret_program(program : &Program) -> (Env, Var) {
+    let mut env = Env::default();
+    let mut last_var = -100; // Magic?
+    for (var, words) in program {
+        let expr = interpret_expr(words);
+        env[var] = expr;
+        last_var = var;
+    }
+}
