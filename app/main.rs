@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 mod aplang;
+mod encodings;
 
 // Deserializing
 use serde::Deserialize;
