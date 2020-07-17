@@ -60,7 +60,7 @@ pub type Assignment = (Var, Vec<Word>);
 
 pub type Program = Vec<Assignment>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApTree {
     Ap(Box<(ApTree,ApTree)>),
     T(Token),

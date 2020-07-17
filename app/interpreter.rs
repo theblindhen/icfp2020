@@ -3,24 +3,98 @@ use crate::aplang::ap;
 
 use std::collections::HashMap;
 
+type Env = HashMap<Var, ApTree>;
+
 fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
     use Token::*;
     use ApTree::*;
     use ApArity::*;
     match get_arity(&tree) {
-        ZeroAry(token) => {
-            //TODO: Collapse vars
-            T(token)
-        },
+        // TOKENS AND VARS
+        ZeroAry(V(var)) => reduce_aptree(env.get(&var).unwrap().clone(), &env),
 
-        Unary(Inc, T(Int(n))) => T(Int(n+1)),
-        Unary(Dec, T(Int(n))) => T(Int(n-1)),
+        // UNARY INTEGER OPERATORS
+        Unary(Inc, T(Int(n))) => int (n+1),
+        Unary(Dec, T(Int(n))) => int (n-1),
         Unary(Modulate, T(Int(n))) => { panic!("Unimplemented Modulate") },
         Unary(Demodulate, T(Int(n))) => { panic!("Unimplemented Demodulate") },
-        Unary(Neg, T(Int(n))) => T(Int(-n)),
+        Unary(Neg, T(Int(n))) => int (-n),
         Unary(Pwr2, T(Int(n))) => { panic!("Unimplemented Pwr2") },
+
+        // BINARY INTEGER OPERATORS
+        Binary(Add, T(Int(a)), T(Int(b))) => int(a+b),
+        Binary(Multiply, T(Int(a)), T(Int(b))) => int(a*b),
+        Binary(Div, T(Int(a)), T(Int(b))) => int(a/b), //TODO: Correct?
+
+        // COMPARISON ON INTEGERS
+        // TODO: Equality on variables? On deep expressions?
+        Binary(Eq, T(Int(a)), T(Int(b))) => {
+            if a == b {
+                T(True)
+            } else {
+                T(False)
+            }
+        },
+        Binary(Lt, T(Int(a)), T(Int(b))) => {
+            if a < b {
+                T(True)
+            } else {
+                T(False)
+            }
+        },
+
+        // COMBINATORS
+        Ternary(S, x, y, z) => {
+            let xz = reduce_aptree(ap(x.clone(), z.clone()), &env);
+            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
+            reduce_aptree(ap(xz, yz), &env)
+        },
+        Ternary(C, x, y, z) => {
+            reduce_aptree(ap(ap(x.clone(), y.clone()), z.clone()), &env)
+        },
+        Ternary(B, x, y, z) => {
+            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
+            reduce_aptree(ap(x.clone(), yz), &env)
+        },
+        Unary(I, arg) => (*arg).clone(),
+        Ternary(If0, T(Int(0)), x, y) => x.clone(),
+        Ternary(If0, T(Int(1)), x, y) => y.clone(),
+
+        // LISTS
+        // Cons: TODO: Any action?
+        Unary(Car, T(Nil)) => T(True),
+        Unary(Car, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, car, _)  => car.clone(),
+                _ => panic!("Unimplemented: Car as free ap")
+            }
+        },
+        Unary(Cdr, T(Nil)) => T(True),
+        Unary(Cdr, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, _, cdr)  => cdr.clone(),
+                _ => panic!("Unimplemented: Cdr as free ap")
+            }
+        },
+        Binary(Vec, cdr, car) => cons(cdr.clone(), car.clone()),
+        // Nil: TODO: Any action?
         Unary(IsNil, T(Nil)) => T(True),
-        // TODO: Unary(IsNil, Cons) => T(True),
+        Unary(IsNil, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, _, _) => T(False),
+                _ => panic!("Undefined IsNil")
+            }
+        }
+
+        // DRAWING
+        //Draw
+        //Checkerboard
+        //DrawList
+
+        // PROTOCOL
+        //Send
+
+        
 
         _ => tree
     }
@@ -35,8 +109,6 @@ pub enum ApPartial {
 }
 
 type PartialStack = Vec<ApPartial>;
-
-type Env = HashMap<Var, ApTree>;
 
 fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
     use Word::*;
