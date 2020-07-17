@@ -72,7 +72,7 @@ pub enum ApArity<'a> {
     Unary(Token, &'a ApTree),
     Binary(Token, &'a ApTree, &'a ApTree),
     Ternary(Token, &'a ApTree, &'a ApTree, &'a ApTree),
-    TooManyAry,
+    TooManyAry(&'a ApTree, &'a ApTree),
 }
 
 pub fn get_arity(tree: &ApTree) -> ApArity {
@@ -80,19 +80,21 @@ pub fn get_arity(tree: &ApTree) -> ApArity {
     use ApTree::*;
     match tree {
         T(token) => ZeroAry(*token),
-        Ap(body) => {
-            let (optree, argz) = body.as_ref();
-            match optree {
+        Ap(bodyz) => {
+            let (optreez, argz) = bodyz.as_ref();
+            match optreez {
                 T(oper) => Unary(*oper, argz),
-                Ap(body) => {
-                    let (optree, argy) = body.as_ref();
-                    match optree {
+                Ap(bodyy) => {
+                    let (optreey, argy) = bodyy.as_ref();
+                    match optreey {
                         T(oper) => Binary(*oper, argy, argz),
-                        Ap(body) => {
-                            let (optree, argx) = body.as_ref();
-                            match optree {
+                        Ap(bodyx) => {
+                            let (optreex, argx) = bodyx.as_ref();
+                            match optreex {
                                 T(oper) => Ternary(*oper, argx, argy, argz),
-                                Ap(_) => TooManyAry
+                                Ap(_) => {
+                                    TooManyAry(optreez, argz)
+                                }
                             }
                         }
                     }

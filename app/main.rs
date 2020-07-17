@@ -5,6 +5,8 @@ mod encodings;
 mod lexer;
 mod interpreter;
 
+use crate::aplang::*;
+
 // Deserializing
 use serde::Deserialize;
 use serde_json::Value;
@@ -100,9 +102,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Lexing...");
         let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        let tree = interpreter::interpret_program(&program);
+        let (tree, env) = interpreter::interpret_program(&program);
         info!("Didn't panic!");
-        info!("Galaxy tree:\n{:#?}", tree);
+        info!("Galaxy tree:\n{:#?}", &tree);
+        use aplang::Token::*;
+        let ap_gal = interpreter::reduce(&ap(ap(tree, ApTree::T(Nil)),
+                                             ap(ap(ApTree::T(Vec), int(0)), int(0))),
+                                         &env);
+        info!("Applied Galaxy tree:\n{:#?}", &ap_gal);
         return Ok(());
     }
 
