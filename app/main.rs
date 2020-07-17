@@ -25,12 +25,12 @@ struct MyOpt {
     #[structopt(short = "v", long = "verbose", parse(from_occurrences))]
     verbose: u8,
 
-    /// Run in interactive mode
-    #[structopt(short, long)]
-    interactive: bool,
-
     #[structopt(default_value = "1000", short, long)]
     timeout: u32,
+
+    /// Lex galaxy.txt, then quit
+    #[structopt(short, long)]
+    lex_only: bool,
 
     /// Server URL, provided by organizers
     #[structopt(name = "SERVER_URL")]
@@ -82,9 +82,8 @@ fn main() {
     // Use -v, -vv, -vvv to specify logging level.
     let level;
     match opt.verbose {
-        0 => level = log::LevelFilter::Off,
-        1 => level = log::LevelFilter::Warn,
-        2 => level = log::LevelFilter::Info,
+        0 => level = log::LevelFilter::Warn,
+        1 => level = log::LevelFilter::Info,
         _ => level = log::LevelFilter::Trace,
     }
     env_logger::builder()
@@ -97,10 +96,11 @@ fn main() {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
-    if opt.interactive { 
-        println!("\nYou asked for INTERACTIVE mode");
-    } else {
-        println!("\nYou asked for NON-INTERACTIVE mode");
+    if opt.lex_only {
+        info!("Lexing...");
+        let program = lexer::lex("galaxy.txt");
+        info!("Lexing done");
+        return;
     }
 
     match http_json(&opt.server_url, &opt.player_key) {
