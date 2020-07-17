@@ -1,6 +1,7 @@
 // Lexer types
+use std::collections::HashMap;
 
-struct Var (i32);
+pub struct Var (i32);
 
 pub enum Token {
     // Constants
@@ -72,7 +73,7 @@ pub enum ApPartial {
 
 pub type ApStack = Vec<ApPartial>;
 
-type Env = Map<Var, ApTree>;
+type Env = HashMap<Var, ApTree>;
 
 fn interpret_expr(expr: Vec<Words>) -> ApTree {
     for 
