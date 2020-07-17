@@ -1,8 +1,10 @@
 // Lexer types
 use std::collections::HashMap;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Var (i32);
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
     // Constants
     True,
@@ -44,6 +46,7 @@ pub enum Token {
 
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
     Ap,
     // OpenList,
@@ -60,17 +63,87 @@ pub type Program = Vec<Assignment>;
 
 // Interpreter types
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum ApTree {
     Ap(Box<(ApTree,ApTree)>),
     Token(Token),
     // List(Vec<ApTree>)
 }
 
+#[derive(Debug)]
 pub enum ApPartial {
     PendingBoth,
-    PendingRight(ApTree)
+    PendingRight(ApTree),
+    ApTree(ApTree),
 }
 
 pub type ApStack = Vec<ApPartial>;
 
 type Env = HashMap<Var, ApTree>;
+
+fn interpret_expr(words: &Vec<Word>) -> ApTree {
+    let mut stack = ApStack::default();
+    for token in words {
+        match token {
+            Word::Ap => stack.push(ApPartial::PendingBoth),
+            Word::Token(t) => {
+                let mut top = ApTree::Token(*t);
+                loop {
+                    match stack.pop() {
+                        None => {
+                            stack.push(ApPartial::ApTree(top));
+                            break;
+                        },
+                        Some(ApPartial::PendingBoth) => {
+                            stack.push(ApPartial::PendingRight(top));
+                            break;
+                        },
+                        Some(ApPartial::PendingRight(left)) => {
+                            top = ApTree::Ap(Box::new((left, top)));
+                        }
+                        Some(ApPartial::ApTree(_)) => {
+                            panic!("Pushed a tree on a tree");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if stack.len() != 1 {
+        panic!("Interpreted expression did not collapse");
+    }
+    match stack.pop() {
+        Some(ApPartial::ApTree(tree)) => tree,
+        None => panic!("Empty expression?"),
+        _ => panic!("Interpreted expression did not collapse to a tree: {:#?}", stack[0]),
+    }
+}
+
+// Returns the final environment and the last-assigned variable
+fn interpret_program(program : &Program) -> (Env, Var) {
+    let mut env = Env::default();
+    let mut last_var = Var(-100); // Magic?
+    for (var, words) in program {
+        let expr = interpret_expr(words);
+        env.insert(*var, expr);
+        last_var = *var;
+    }
+    (env, last_var)
+}
+
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_interpret_expr() {
+        assert_eq!(interpret_expr(&vec![Word::Token(Token::Int(1))]),
+                   ApTree::Token(Token::Int(1)));
+        assert_eq!(interpret_expr(&vec![Word::Ap, Word::Token(Token::Add), Word::Token(Token::Int(1))]),
+                   ApTree::Ap(Box::new((ApTree::Token(Token::Add),
+                                        ApTree::Token(Token::Int(1))))));
+    }
+      
+}
