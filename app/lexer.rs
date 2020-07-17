@@ -61,8 +61,24 @@ fn token(input: &str) -> IResult<&str, Token> {
 
     n::alt((
         n::map(n::map_res(decint, |s: &str| s.parse()), Int),
+        n::value(Add, n::tag("add")),
+        n::value(Car, n::tag("car")),
+        n::value(Cdr, n::tag("cdr")),
         n::value(Cons, n::tag("cons")),
+        n::value(Div, n::tag("div")),
+        n::value(Eq, n::tag("eq")),
+        n::value(IsNil, n::tag("isnil")),
+        n::value(Lt, n::tag("lt")),
+        n::value(Multiply, n::tag("mul")),
+        n::value(Neg, n::tag("neg")),
         n::value(Nil, n::tag("nil")),
+        n::value(B, n::tag("b")),
+        n::value(C, n::tag("c")),
+        n::value(False, n::tag("f")),
+        n::value(I, n::tag("i")),
+        n::value(S, n::tag("s")),
+        n::value(True, n::tag("t")),
+        n::map(variable, V),
     ))(input)
 }
 
@@ -94,7 +110,14 @@ mod test {
     #[test]
     fn test_assignment() {
         assert_eq!(assignment(":1 = 2"), Ok(("", (Var(1), vec![WT(Int(2))]))));
-        assert_eq!(assignment("galaxy = 42"), Ok(("", (Var(-1), vec![WT(Int(42))]))));
+        assert_eq!(
+            assignment("galaxy = 42"),
+            Ok(("", (Var(-1), vec![WT(Int(42))])))
+        );
+        assert_eq!(
+            assignment(":2 = ap i :1"),
+            Ok(("", (Var(2), vec![WAp, WT(I), WT(V(Var(1)))])))
+        );
         assert_eq!(
             assignment(":1030 = ap ap cons 2 ap ap cons 7 nil"),
             Ok((
