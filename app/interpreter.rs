@@ -3,16 +3,15 @@ use crate::aplang::ap;
 
 use std::collections::HashMap;
 
+type Env = HashMap<Var, ApTree>;
+
 fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
     use Token::*;
     use ApTree::*;
     use ApArity::*;
     match get_arity(&tree) {
         // TOKENS AND VARS
-        ZeroAry(token) => {
-            //TODO: Collapse vars
-            T(token)
-        },
+        ZeroAry(V(var)) => reduce_aptree(env.get(&var).unwrap().clone(), &env),
 
         // UNARY INTEGER OPERATORS
         Unary(Inc, T(Int(n))) => int (n+1),
@@ -110,8 +109,6 @@ pub enum ApPartial {
 }
 
 type PartialStack = Vec<ApPartial>;
-
-type Env = HashMap<Var, ApTree>;
 
 fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
     use Word::*;
