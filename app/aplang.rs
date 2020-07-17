@@ -63,7 +63,7 @@ pub type Program = Vec<Assignment>;
 
 // Interpreter types
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum ApTree {
     Ap(Box<(ApTree,ApTree)>),
     Token(Token),
@@ -129,4 +129,21 @@ fn interpret_program(program : &Program) -> (Env, Var) {
         last_var = *var;
     }
     (env, last_var)
+}
+
+
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_interpret_expr() {
+        assert_eq!(interpret_expr(&vec![Word::Token(Token::Int(1))]),
+                   ApTree::Token(Token::Int(1)));
+        assert_eq!(interpret_expr(&vec![Word::Ap, Word::Token(Token::Add), Word::Token(Token::Int(1))]),
+                   ApTree::Ap(Box::new((ApTree::Token(Token::Add),
+                                        ApTree::Token(Token::Int(1))))));
+    }
+      
 }
