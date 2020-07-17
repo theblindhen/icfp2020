@@ -63,33 +63,70 @@ pub type Program = Vec<Assignment>;
 
 // Interpreter types
 
+#[derive(Debug)]
 pub enum ApTree {
     Ap(Box<(ApTree,ApTree)>),
     Token(Token),
     // List(Vec<ApTree>)
 }
 
+#[derive(Debug)]
 pub enum ApPartial {
     PendingBoth,
-    PendingRight(ApTree)
+    PendingRight(ApTree),
+    ApTree(ApTree),
 }
 
 pub type ApStack = Vec<ApPartial>;
 
 type Env = HashMap<Var, ApTree>;
 
-fn interpret_expr(expr: Vec<Words>) -> ApTree {
-    for 
-
+fn interpret_expr(words: &Vec<Word>) -> ApTree {
+    let mut stack = ApStack::default();
+    for token in words {
+        match token {
+            Word::Ap => stack.push(ApPartial::PendingBoth),
+            Word::Token(t) => {
+                let mut top = ApTree::Token(*t);
+                loop {
+                    match stack.pop() {
+                        None => {
+                            stack.push(ApPartial::ApTree(top));
+                            break;
+                        },
+                        Some(ApPartial::PendingBoth) => {
+                            stack.push(ApPartial::PendingRight(top));
+                            break;
+                        },
+                        Some(ApPartial::PendingRight(left)) => {
+                            top = ApTree::Ap(Box::new((left, top)));
+                        }
+                        Some(ApPartial::ApTree(_)) => {
+                            panic!("Pushed a tree on a tree");
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if stack.len() != 1 {
+        panic!("Interpreted expression did not collapse");
+    }
+    match stack.pop() {
+        Some(ApPartial::ApTree(tree)) => tree,
+        None => panic!("Empty expression?"),
+        _ => panic!("Interpreted expression did not collapse to a tree: {:#?}", stack[0]),
+    }
 }
 
 // Returns the final environment and the last-assigned variable
 fn interpret_program(program : &Program) -> (Env, Var) {
     let mut env = Env::default();
-    let mut last_var = -100; // Magic?
+    let mut last_var = Var(-100); // Magic?
     for (var, words) in program {
         let expr = interpret_expr(words);
-        env[var] = expr;
-        last_var = var;
+        env.insert(*var, expr);
+        last_var = *var;
     }
+    (env, last_var)
 }
