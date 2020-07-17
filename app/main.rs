@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 // Deserializing
 use serde::Deserialize;
 use serde_json::Value;
@@ -25,9 +27,13 @@ struct MyOpt {
     #[structopt(default_value = "1000", short, long)]
     timeout: u32,
 
-    /// Input file
-    #[structopt(name = "MAP", default_value = "repos.json", parse(from_os_str))]
-    file: PathBuf,
+    /// Server URL, provided by organizers
+    #[structopt(name = "SERVER_URL")]
+    server_url: String,
+
+    /// Player key, provided by organizers
+    #[structopt(name = "PLAYER_KEY")]
+    player_key: String,
 }
 
 
@@ -41,16 +47,15 @@ struct Repo {
 }
 
 // Demonstrates sending an HTTP request and decoding the response as JSON.
-fn http_json() -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
-    println!("Sending request...");
+fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
+    println!("Sending request to {}...", url);
 
-    let json : Value =
-        ureq::get("http://jsrn.dk/advanced.json")
+    let reply =
+        ureq::post(url)
             .timeout(std::time::Duration::from_secs(30))
-            .call()
-            .into_json_deserialize().unwrap();
-
-    Ok(serde_json::from_value(json)?)
+            .send_string(body)
+            .into_string()?;
+    Ok(reply)
 }
 
 fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
@@ -94,16 +99,10 @@ fn main() {
         println!("\nYou asked for NON-INTERACTIVE mode");
     }
 
-    match http_json() {
+    match http_json(&opt.server_url, &opt.player_key) {
         Err(_) => println!("\nThere was an error with the HTTP request or JSON parsing"),
-        Ok(repos) =>
-            println!("{:#?}", repos)
-    }
-
-    match file_json(opt.file) {
-        Err(_) => println!("\nThere was an error with reading the JSON file"),
-        Ok(repos) =>
-            println!("{:#?}", repos)
+        Ok(response) =>
+            println!("{:?}", response)
     }
 }
 
