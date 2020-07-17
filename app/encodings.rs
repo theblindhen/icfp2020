@@ -28,12 +28,11 @@ fn modulate_int(mut val: i64) -> String {
 }
 
 fn demodulate_int(s: &str) -> (i64, &str) {
-    let sign =
-        match &s[0..2] {
-            "10" => -1,
-            "01" => 1,
-            _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
-        };
+    let sign = match &s[0..2] {
+        "10" => -1,
+        "01" => 1,
+        _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
+    };
 
     let mut remainder = &s[2..];
 
@@ -41,13 +40,13 @@ fn demodulate_int(s: &str) -> (i64, &str) {
         Some(n) => {
             let width = n * 4;
             if width > 0 {
-                remainder = &remainder[n+1..];
+                remainder = &remainder[n + 1..];
                 let tmp = i64::from_str_radix(&remainder[0..width], 2).unwrap();
-                return (sign * tmp, &remainder[width..])
+                return (sign * tmp, &remainder[width..]);
             } else {
-                return (0, &remainder[1..])
+                return (0, &remainder[1..]);
             }
-        },
+        }
         _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
     }
 }
@@ -55,23 +54,22 @@ fn demodulate_int(s: &str) -> (i64, &str) {
 fn demodulate(s: &str) -> (ApTree, &str) {
     match &s[0..2] {
         // nil
-        "00" =>
-            (nil(), &s[2..]),
+        "00" => (nil(), &s[2..]),
 
         // cons
         "11" => {
             let (head, remainder1) = demodulate(&s[2..]);
             let (tail, remainder2) = demodulate(remainder1);
             (cons(head, tail), remainder2)
-        },
+        }
 
         // neg
         "10" | "01" => {
             let (i, remainder) = demodulate_int(s);
             (int(i), remainder)
-        },
+        }
 
-        _ => panic!("cannot demodulate: {:?}", s)
+        _ => panic!("cannot demodulate: {:?}", s),
     }
 }
 
@@ -168,17 +166,20 @@ mod test {
             "1101100001111101100010110110001100110110010000"
         );
     }
-    
     #[test]
     fn test_demodulate() {
         assert_eq!(demodulate("00"), (nil(), ""));
         assert_eq!(demodulate("110000"), (cons(nil(), nil()), ""));
         assert_eq!(demodulate("1101000"), (cons(int(0), nil()), ""));
         assert_eq!(demodulate("110110000101100010"), (cons(int(1), int(2)), ""));
-        assert_eq!(demodulate("1101100001110110001000"), 
-            (cons(int(1), cons(int(2), nil())), ""));
+        assert_eq!(
+            demodulate("1101100001110110001000"),
+            (cons(int(1), cons(int(2), nil())), "")
+        );
         let inner_list = cons(int(2), cons(int(3), nil()));
-        assert_eq!(demodulate("1101100001111101100010110110001100110110010000"),
-            (cons(int(1), cons(inner_list, cons(int(4), nil()))), ""));
+        assert_eq!(
+            demodulate("1101100001111101100010110110001100110110010000"),
+            (cons(int(1), cons(inner_list, cons(int(4), nil()))), "")
+        );
     }
 }
