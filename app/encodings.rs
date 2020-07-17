@@ -60,6 +60,7 @@ fn int_width(val: i32) -> i32 {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::aplang::*;
     #[test]
     fn test_int_width() {
         assert_eq!(int_width(0), 0);
