@@ -175,9 +175,9 @@ mod test {
     fn test_interpret_words() {
         let env = Env::default();
         assert_eq!(interpret_words(&vec![WT(Int(1))], &env),
-                   T(Int(1)));
+                   int(1));
         assert_eq!(interpret_words(&vec![WAp, WT(Add), WT(Int(1))], &env),
-                   Ap(Box::new((T(Add), T(Int(1))))));
+                   ap(T(Add), int(1)));
         assert_eq!(interpret_words(&vec![WAp, WT(Inc), WT(Int(1))], &env),
                    T(Int(2)));
     }
