@@ -4,15 +4,15 @@ all:
 
 .PHONY: docker-build
 docker-build: 
-    docker build -t icfp20 .
+	docker build -t icfp20 .
 
 .PHONY: docker-run
 docker-run: docker-build
-    docker run --rm icfp20
+	docker run --rm icfp20
 
 .PHONY: docker-shell
 docker-shell: docker-build
-    docker run --rm -it --entrypoint /bin/bash icfp20
+	docker run --rm -it --entrypoint /bin/bash icfp20
 
 submission:
 	git checkout submission
