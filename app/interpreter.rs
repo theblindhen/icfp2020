@@ -13,12 +13,18 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
             T(token)
         },
 
-        Unary(Inc, T(Int(n))) => T(Int(n+1)),
-        Unary(Dec, T(Int(n))) => T(Int(n-1)),
+        Unary(Inc, T(Int(n))) => int (n+1),
+        Unary(Dec, T(Int(n))) => int (n-1),
         Unary(Modulate, T(Int(n))) => { panic!("Unimplemented Modulate") },
         Unary(Demodulate, T(Int(n))) => { panic!("Unimplemented Demodulate") },
-        Unary(Neg, T(Int(n))) => T(Int(-n)),
+        Unary(Neg, T(Int(n))) => int (-n),
         Unary(Pwr2, T(Int(n))) => { panic!("Unimplemented Pwr2") },
+        Unary(IsNil, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, _, _) => T(False),
+                _ => panic!("Undefined IsNil")
+            }
+        }
         Unary(IsNil, T(Nil)) => T(True),
         // TODO: Unary(IsNil, Cons) => T(True),
 
