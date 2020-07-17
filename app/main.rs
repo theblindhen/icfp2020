@@ -3,6 +3,7 @@
 mod aplang;
 mod encodings;
 mod lexer;
+mod interpreter;
 
 // Deserializing
 use serde::Deserialize;
