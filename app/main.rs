@@ -71,7 +71,7 @@ fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
     Ok(json)
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments according to the struct
     let opt = MyOpt::from_args();
 
@@ -98,16 +98,16 @@ fn main() {
 
     if opt.lex_only {
         info!("Lexing...");
-        let program = lexer::lex("galaxy.txt");
+        let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        return;
+        let (env, var) = interpreter::interpret_program(&program);
+        info!("Didn't panic!");
+        return Ok(());
     }
 
-    match http_json(&opt.server_url, &opt.player_key) {
-        Err(_) => println!("\nThere was an error with the HTTP request or JSON parsing"),
-        Ok(response) =>
-            println!("{:?}", response)
-    }
+    let response = http_json(&opt.server_url, &opt.player_key)?;
+    println!("{:?}", response);
+    Ok(())
 }
 
 #[cfg(test)]
