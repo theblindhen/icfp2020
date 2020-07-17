@@ -1,6 +1,7 @@
 // Lexer types
+use std::collections::HashMap;
 
-struct Var (i32);
+pub struct Var (i32);
 
 pub enum Token {
     // Constants
@@ -54,7 +55,7 @@ pub enum Word {
 
 pub type Assignment = (Var, Vec<Word>);
 
-pub type Program = Vec<Assignments>;
+pub type Program = Vec<Assignment>;
 
 
 // Interpreter types
@@ -72,4 +73,4 @@ pub enum ApPartial {
 
 pub type ApStack = Vec<ApPartial>;
 
-type Env = Map<Var, ApTree>;
+type Env = HashMap<Var, ApTree>;
