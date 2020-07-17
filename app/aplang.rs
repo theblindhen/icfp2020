@@ -1,8 +1,10 @@
 // Lexer types
 use std::collections::HashMap;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Var (i32);
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
     // Constants
     True,
@@ -44,6 +46,7 @@ pub enum Token {
 
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
     Ap,
     // OpenList,
@@ -74,3 +77,19 @@ pub enum ApPartial {
 pub type ApStack = Vec<ApPartial>;
 
 type Env = HashMap<Var, ApTree>;
+
+fn interpret_expr(expr: Vec<Words>) -> ApTree {
+    for 
+
+}
+
+// Returns the final environment and the last-assigned variable
+fn interpret_program(program : &Program) -> (Env, Var) {
+    let mut env = Env::default();
+    let mut last_var = -100; // Magic?
+    for (var, words) in program {
+        let expr = interpret_expr(words);
+        env[var] = expr;
+        last_var = var;
+    }
+}
