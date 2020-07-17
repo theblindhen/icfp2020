@@ -5,13 +5,14 @@ use std::collections::HashMap;
 
 type Env = HashMap<Var, ApTree>;
 
-fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
+fn reduce(tree: &ApTree, env : &Env) -> ApTree {
     use Token::*;
     use ApTree::*;
     use ApArity::*;
+    let mut tree = tree;
     match get_arity(&tree) {
         // TOKENS AND VARS
-        ZeroAry(V(var)) => reduce_aptree(env.get(&var).unwrap().clone(), &env),
+        ZeroAry(V(var)) => reduce(env.get(&var).unwrap(), &env),
 
         // UNARY INTEGER OPERATORS
         Unary(Inc, T(Int(n))) => int (n+1),
@@ -45,42 +46,41 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
 
         // COMBINATORS
         Ternary(S, x, y, z) => {
-            let xz = reduce_aptree(ap(x.clone(), z.clone()), &env);
-            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
-            reduce_aptree(ap(xz, yz), &env)
+            let xz = ap(x.clone(), z.clone());
+            let yz = ap(y.clone(), z.clone());
+            reduce(&ap(xz, yz), &env)
         },
         Ternary(C, x, y, z) => {
-            reduce_aptree(ap(ap(x.clone(), y.clone()), z.clone()), &env)
+            reduce(&ap(ap(x.clone(), y.clone()), z.clone()), &env)
         },
         Ternary(B, x, y, z) => {
-            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
-            reduce_aptree(ap(x.clone(), yz), &env)
+            reduce(&ap(x.clone(), ap(y.clone(), z.clone())), &env)
         },
-        Unary(I, arg) => (*arg).clone(),
-        Ternary(If0, T(Int(0)), x, y) => x.clone(),
-        Ternary(If0, T(Int(1)), x, y) => y.clone(),
+        Unary(I, arg) => reduce(arg, &env),
+        Ternary(If0, T(Int(0)), x, y) => reduce(x, &env),
+        Ternary(If0, T(Int(1)), x, y) => reduce(y, &env),
 
         // LISTS
         // Cons: TODO: Any action?
         Unary(Car, T(Nil)) => T(True),
         Unary(Car, arg) => {
-            match get_arity(&arg) {
+            match get_arity(&reduce(arg, &env)) {
                 Binary(Cons, car, _)  => car.clone(),
                 _ => panic!("Unimplemented: Car as free ap")
             }
         },
         Unary(Cdr, T(Nil)) => T(True),
         Unary(Cdr, arg) => {
-            match get_arity(&arg) {
+            match get_arity(&reduce(arg, &env)) {
                 Binary(Cons, _, cdr)  => cdr.clone(),
                 _ => panic!("Unimplemented: Cdr as free ap")
             }
         },
-        Binary(Vec, cdr, car) => cons(cdr.clone(), car.clone()),
+        Binary(Vec, cdr, car) => reduce(&cons(cdr.clone(), car.clone()), &env),
         // Nil: TODO: Any action?
         Unary(IsNil, T(Nil)) => T(True),
         Unary(IsNil, arg) => {
-            match get_arity(&arg) {
+            match get_arity(&reduce(arg, &env)) {
                 Binary(Cons, _, _) => T(False),
                 _ => panic!("Undefined IsNil")
             }
@@ -96,7 +96,7 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
 
         
 
-        _ => tree
+        _ => tree.clone()
     }
 }
 
@@ -110,7 +110,7 @@ pub enum ApPartial {
 
 type PartialStack = Vec<ApPartial>;
 
-fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
+fn words_to_tree(words: &Vec<Word>) -> ApTree {
     use Word::*;
     use ApPartial::*;
     let mut stack = PartialStack::default();
@@ -118,7 +118,7 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
         match token {
             WAp => stack.push(PendingBoth),
             WT(t) => {
-                let mut top = reduce_aptree(ApTree::T(*t), &env);
+                let mut top = ApTree::T(*t);
                 loop {
                     match stack.pop() {
                         None => {
@@ -130,7 +130,7 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
                             break;
                         },
                         Some(PendingRight(left)) => {
-                            top = reduce_aptree(ap(left, top), &env);
+                            top = ap(left, top);
                         }
                         Some(Tree(_)) => {
                             panic!("Pushed a tree on a tree");
@@ -150,16 +150,15 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
     }
 }
 
-// Returns the final environment and the last-assigned variable
-pub fn interpret_program(program : &Program) -> (Env, Var) {
+pub fn interpret_program(program : &Program) -> ApTree {
     let mut env = Env::default();
     let mut last_var = Var(-100); // Magic?
     for (var, words) in program {
-        let expr = interpret_words(words, &env);
+        let expr = words_to_tree(words);
         env.insert(*var, expr);
         last_var = *var;
     }
-    (env, last_var)
+    reduce(env.get(&last_var).unwrap(), &env)
 }
 
 
@@ -172,13 +171,13 @@ mod test {
     use Word::*;
 
     #[test]
-    fn test_interpret_words() {
+    fn test_words_to_tree() {
         let env = Env::default();
-        assert_eq!(interpret_words(&vec![WT(Int(1))], &env),
-                   T(Int(1)));
-        assert_eq!(interpret_words(&vec![WAp, WT(Add), WT(Int(1))], &env),
-                   Ap(Box::new((T(Add), T(Int(1))))));
-        assert_eq!(interpret_words(&vec![WAp, WT(Inc), WT(Int(1))], &env),
+        assert_eq!(words_to_tree(&vec![WT(Int(1))]),
+                   int(1));
+        assert_eq!(reduce(&words_to_tree(&vec![WAp, WT(Add), WT(Int(1))]), &env),
+                   ap(T(Add), int(1)));
+        assert_eq!(reduce(&words_to_tree(&vec![WAp, WT(Inc), WT(Int(1))]), &env),
                    T(Int(2)));
     }
       

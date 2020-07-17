@@ -100,8 +100,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Lexing...");
         let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        let (env, var) = interpreter::interpret_program(&program);
+        let tree = interpreter::interpret_program(&program);
         info!("Didn't panic!");
+        info!("Galaxy tree:\n{:#?}", tree);
         return Ok(());
     }
 
