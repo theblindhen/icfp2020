@@ -29,11 +29,11 @@ fn modulate_int(mut val: i32) -> String {
 
 fn modulate(tree: &ApTree) -> String {
     match tree {
-        ApTree::Token(Token::Int(val)) => return modulate_int(*val),
-        ApTree::Token(Token::Nil) => return String::from("00"),
+        ApTree::T(Token::Int(val)) => return modulate_int(*val),
+        ApTree::T(Token::Nil) => return String::from("00"),
         ApTree::Ap(ap_arg1) => match ap_arg1.as_ref() {
             (ApTree::Ap(ap_arg2), tail) => match ap_arg2.as_ref() {
-                (ApTree::Token(Token::Cons), head) => {
+                (ApTree::T(Token::Cons), head) => {
                     return String::from("11") + &modulate(head) + &modulate(tail);
                 }
                 _ => panic!("cannot modulate list"),
@@ -91,15 +91,15 @@ mod test {
     }
 
     fn nil() -> ApTree {
-        return ApTree::Token(Token::Nil);
+        return ApTree::T(Token::Nil);
     }
 
     fn cons(head: ApTree, tail: ApTree) -> ApTree {
-        return ap(ap(ApTree::Token(Token::Cons), head), tail);
+        return ap(ap(ApTree::T(Token::Cons), head), tail);
     }
 
     fn int(val: i32) -> ApTree {
-        return ApTree::Token(Token::Int(val));
+        return ApTree::T(Token::Int(val));
     }
 
     #[test]
