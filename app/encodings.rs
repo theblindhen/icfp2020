@@ -27,6 +27,46 @@ fn modulate_int(mut val: i64) -> String {
     return encoding;
 }
 
+fn demodulate_int(s: &str) -> (i64, &str) {
+    match s.find('0') {
+        Some(n) => {
+            let width = n * 4;
+            let tmp = i64::from_str_radix(&s[n+1..n+1+width], 2).unwrap();
+            return (tmp, &s[n+2+width..])
+        },
+        _ => panic!("invalid encoding of integer, cannot demodulate: {:?}", s),
+    }
+}
+
+fn demodulate(s: &str) -> (ApTree, &str) {
+    match &s[0..2] {
+        // nil
+        "00" =>
+            (nil(), &s[2..]),
+
+        // cons
+        "11" => {
+            let (head, remainder1) = demodulate(&s[2..]);
+            let (tail, remainder2) = demodulate(remainder1);
+            (cons(head, tail), remainder2)
+        },
+
+        // neg
+        "10" => {
+            let (val, remainder) = demodulate_int(&s[2..]);
+            (int(-val), remainder)
+        },
+
+        // pos
+        "01" => {
+            let (val, remainder) = demodulate_int(&s[2..]);
+            (int(val), remainder)
+        },
+
+        _ => panic!("cannot demodulate: {:?}", s)
+    }
+}
+
 fn modulate(tree: &ApTree) -> String {
     match tree {
         ApTree::T(Token::Int(val)) => return modulate_int(*val),
@@ -85,22 +125,6 @@ mod test {
         assert_eq!(modulate_int(-255), "1011011111111");
         assert_eq!(modulate_int(256), "011110000100000000");
         assert_eq!(modulate_int(-256), "101110000100000000");
-    }
-
-    fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
-        return ApTree::Ap(Box::from((arg1, arg2)));
-    }
-
-    fn nil() -> ApTree {
-        return ApTree::T(Token::Nil);
-    }
-
-    fn cons(head: ApTree, tail: ApTree) -> ApTree {
-        return ap(ap(ApTree::T(Token::Cons), head), tail);
-    }
-
-    fn int(val: i64) -> ApTree {
-        return ApTree::T(Token::Int(val));
     }
 
     #[test]
