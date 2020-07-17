@@ -14,6 +14,7 @@ pub enum Token {
     // Unary operators
     Inc,
     Dec,
+    Neg,
     Modulate,
     Demodulate,
     Pwr2,
@@ -70,25 +71,61 @@ pub enum ApTree {
     // List(Vec<ApTree>)
 }
 
+enum ApArity<'a> {
+    ZeroAry(Token),
+    Unary(Token, &'a ApTree),
+    Binary(Token, &'a ApTree, &'a ApTree),
+    Ternary(Token, &'a ApTree, &'a ApTree, &'a ApTree),
+    TooManyAry,
+}
+
+fn get_arity(tree: &ApTree) -> ApArity {
+    use ApArity::*;
+    use ApTree::*;
+    match tree {
+        T(token) => ZeroAry(*token),
+        Ap(body) => {
+            let (optree, argz) = body.as_ref();
+            match optree {
+                T(oper) => Unary(*oper, argz),
+                Ap(body) => {
+                    let (optree, argy) = body.as_ref();
+                    match optree {
+                        T(oper) => Binary(*oper, argy, argz),
+                        Ap(body) => {
+                            let (optree, argx) = body.as_ref();
+                            match optree {
+                                T(oper) => Ternary(*oper, argx, argy, argz),
+                                Ap(_) => TooManyAry
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
     use Token::*;
     use ApTree::*;
-    match &tree {
-        Ap(ap_arms) => {
-            match **ap_arms {
-                // Unary Ops
-                (T(Inc),   T(Int(n))) => T(Int(n+1)),
-                // (T(IsNil), T(
-                // Isnil, neg
-
-                // Binary Ops
-                // add, car, cons, div, eq, lt, mul
-
-                // Ternary Ops
-                // I, S
-                _ => tree
-            }
+    use ApArity::*;
+    match get_arity(&tree) {
+        ZeroAry(token) => {
+            //TODO: Collapse vars
+            T(token)
         },
+
+        Unary(Inc, T(Int(n))) => T(Int(n+1)),
+        Unary(Dec, T(Int(n))) => T(Int(n-1)),
+        Unary(Modulate, T(Int(n))) => { panic!("Unimplemented Modulate") },
+        Unary(Demodulate, T(Int(n))) => { panic!("Unimplemented Demodulate") },
+        Unary(Neg, T(Int(n))) => T(Int(-n)),
+        Unary(Pwr2, T(Int(n))) => { panic!("Unimplemented Pwr2") },
+        Unary(IsNil, T(Nil)) => T(True),
+        // TODO: Unary(IsNil, Cons) => T(True),
+
         _ => tree
     }
 }
@@ -173,6 +210,8 @@ mod test {
                    T(Int(1)));
         assert_eq!(interpret_words(&vec![WAp, WT(Add), WT(Int(1))], &env),
                    Ap(Box::new((T(Add), T(Int(1))))));
+        assert_eq!(interpret_words(&vec![WAp, WT(Inc), WT(Int(1))], &env),
+                   T(Int(2)));
     }
       
 }
