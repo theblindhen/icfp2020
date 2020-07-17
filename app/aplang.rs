@@ -48,11 +48,11 @@ pub enum Token {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
-    Ap,
+    WAp,
     // OpenList,
     // ListSep,
     // CloseList,
-    Token(Token),
+    WT(Token),
 }
 
 
@@ -66,42 +66,68 @@ pub type Program = Vec<Assignment>;
 #[derive(Debug, PartialEq, Eq)]
 pub enum ApTree {
     Ap(Box<(ApTree,ApTree)>),
-    Token(Token),
+    T(Token),
     // List(Vec<ApTree>)
 }
+
+fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
+    use Token::*;
+    use ApTree::*;
+    match &tree {
+        Ap(ap_arms) => {
+            match **ap_arms {
+                // Unary Ops
+                (T(Inc),   T(Int(n))) => T(Int(n+1)),
+                // (T(IsNil), T(
+                // Isnil, neg
+
+                // Binary Ops
+                // add, car, cons, div, eq, lt, mul
+
+                // Ternary Ops
+                // I, S
+                _ => tree
+            }
+        },
+        _ => tree
+    }
+}
+
 
 #[derive(Debug)]
 pub enum ApPartial {
     PendingBoth,
     PendingRight(ApTree),
-    ApTree(ApTree),
+    Tree(ApTree),
 }
 
-pub type ApStack = Vec<ApPartial>;
+type PartialStack = Vec<ApPartial>;
 
 type Env = HashMap<Var, ApTree>;
 
-fn interpret_expr(words: &Vec<Word>) -> ApTree {
-    let mut stack = ApStack::default();
+fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
+    use Word::*;
+    use ApPartial::*;
+    let mut stack = PartialStack::default();
     for token in words {
         match token {
-            Word::Ap => stack.push(ApPartial::PendingBoth),
-            Word::Token(t) => {
-                let mut top = ApTree::Token(*t);
+            WAp => stack.push(PendingBoth),
+            WT(t) => {
+                let mut top = ApTree::T(*t);
                 loop {
                     match stack.pop() {
                         None => {
-                            stack.push(ApPartial::ApTree(top));
+                            stack.push(Tree(top));
                             break;
                         },
-                        Some(ApPartial::PendingBoth) => {
-                            stack.push(ApPartial::PendingRight(top));
+                        Some(PendingBoth) => {
+                            stack.push(PendingRight(top));
                             break;
                         },
-                        Some(ApPartial::PendingRight(left)) => {
-                            top = ApTree::Ap(Box::new((left, top)));
+                        Some(PendingRight(left)) => {
+                            top = reduce_aptree(ApTree::Ap(Box::new((left, top))), &env);
                         }
-                        Some(ApPartial::ApTree(_)) => {
+                        Some(Tree(_)) => {
                             panic!("Pushed a tree on a tree");
                         }
                     }
@@ -113,7 +139,7 @@ fn interpret_expr(words: &Vec<Word>) -> ApTree {
         panic!("Interpreted expression did not collapse");
     }
     match stack.pop() {
-        Some(ApPartial::ApTree(tree)) => tree,
+        Some(Tree(tree)) => tree,
         None => panic!("Empty expression?"),
         _ => panic!("Interpreted expression did not collapse to a tree: {:#?}", stack[0]),
     }
@@ -124,7 +150,7 @@ fn interpret_program(program : &Program) -> (Env, Var) {
     let mut env = Env::default();
     let mut last_var = Var(-100); // Magic?
     for (var, words) in program {
-        let expr = interpret_expr(words);
+        let expr = interpret_words(words, &env);
         env.insert(*var, expr);
         last_var = *var;
     }
@@ -136,14 +162,17 @@ fn interpret_program(program : &Program) -> (Env, Var) {
 #[cfg(test)]
 mod test {
     use super::*;
+    use ApTree::*;
+    use Token::*;
+    use Word::*;
 
     #[test]
-    fn test_interpret_expr() {
-        assert_eq!(interpret_expr(&vec![Word::Token(Token::Int(1))]),
-                   ApTree::Token(Token::Int(1)));
-        assert_eq!(interpret_expr(&vec![Word::Ap, Word::Token(Token::Add), Word::Token(Token::Int(1))]),
-                   ApTree::Ap(Box::new((ApTree::Token(Token::Add),
-                                        ApTree::Token(Token::Int(1))))));
+    fn test_interpret_words() {
+        let env = Env::default();
+        assert_eq!(interpret_words(&vec![WT(Int(1))], &env),
+                   T(Int(1)));
+        assert_eq!(interpret_words(&vec![WAp, WT(Add), WT(Int(1))], &env),
+                   Ap(Box::new((T(Add), T(Int(1))))));
     }
       
 }
