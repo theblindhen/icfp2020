@@ -50,27 +50,42 @@ fn reduce_aptree(tree: ApTree, env : &Env) -> ApTree {
             let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
             reduce_aptree(ap(xz, yz), &env)
         },
-        // S
-        // C
-        // B
-        // I
-        Unary(I, arg) => (*arg).clone(), //WUHUU!
-        // If0
+        Ternary(C, x, y, z) => {
+            reduce_aptree(ap(ap(x.clone(), y.clone()), z.clone()), &env)
+        },
+        Ternary(B, x, y, z) => {
+            let yz = reduce_aptree(ap(y.clone(), z.clone()), &env);
+            reduce_aptree(ap(x.clone(), yz), &env)
+        },
+        Unary(I, arg) => (*arg).clone(),
+        Ternary(If0, T(Int(0)), x, y) => x.clone(),
+        Ternary(If0, T(Int(1)), x, y) => y.clone(),
 
         // LISTS
-        // Cons
-        // Car
-        // Cdr
-        // Vec
-        // Nil
-        // IsNil
+        // Cons: TODO: Any action?
+        Unary(Car, T(Nil)) => T(True),
+        Unary(Car, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, car, _)  => car.clone(),
+                _ => panic!("Unimplemented: Car as free ap")
+            }
+        },
+        Unary(Cdr, T(Nil)) => T(True),
+        Unary(Cdr, arg) => {
+            match get_arity(&arg) {
+                Binary(Cons, _, cdr)  => cdr.clone(),
+                _ => panic!("Unimplemented: Cdr as free ap")
+            }
+        },
+        Binary(Vec, cdr, car) => cons(cdr.clone(), car.clone()),
+        // Nil: TODO: Any action?
+        Unary(IsNil, T(Nil)) => T(True),
         Unary(IsNil, arg) => {
             match get_arity(&arg) {
                 Binary(Cons, _, _) => T(False),
                 _ => panic!("Undefined IsNil")
             }
         }
-        Unary(IsNil, T(Nil)) => T(True),
 
         // DRAWING
         //Draw
