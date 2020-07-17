@@ -118,7 +118,7 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
         match token {
             WAp => stack.push(PendingBoth),
             WT(t) => {
-                let mut top = ApTree::T(*t);
+                let mut top = reduce_aptree(ApTree::T(*t), &env);
                 loop {
                     match stack.pop() {
                         None => {
@@ -151,7 +151,7 @@ fn interpret_words(words: &Vec<Word>, env : &Env) -> ApTree {
 }
 
 // Returns the final environment and the last-assigned variable
-fn interpret_program(program : &Program) -> (Env, Var) {
+pub fn interpret_program(program : &Program) -> (Env, Var) {
     let mut env = Env::default();
     let mut last_var = Var(-100); // Magic?
     for (var, words) in program {
