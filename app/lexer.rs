@@ -73,7 +73,6 @@ fn word(input: &str) -> IResult<&str, Word> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::aplang::Var;
     use Token::*;
     use Word::*;
 

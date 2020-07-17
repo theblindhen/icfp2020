@@ -9,7 +9,7 @@ pub enum Token {
     True,
     False,
     Int(i64), //TODO: BigInt?
-    Var(Var),
+    V(Var),
     // Unary operators
     Inc,
     Dec,
