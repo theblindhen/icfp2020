@@ -8,6 +8,7 @@ mod bits2d;
 mod draw;
 
 use crate::aplang::*;
+use crate::encodings::*;
 
 use structopt::StructOpt;
 use std::path::PathBuf;
@@ -30,6 +31,9 @@ struct MyOpt {
 
     #[structopt(short, long)]
     protocol: Option<String>,
+
+    #[structopt(short, long)]
+    state: Option<String>,
 
     #[structopt(long)]
     make_join_message_with_key: Option<i64>,
@@ -91,11 +95,19 @@ fn main() {
     let (prg_var, env) = interpreter::parse_program(&program);
     let mut env = env;
     let mut point = draw::Point(0, 0);
-    let mut state = interpreter::initial_state();
+    let mut state =
+        match opt.state {
+            None => interpreter::initial_state(),
+            Some(state_str) => {
+                let (vtree, _) = encodings::demodulate(&state_str);
+                vtree
+            }
+        };
     let mut round = 0;
     loop {
         round += 1;
         println!("ROUND {}", round);
+        println!("State\n{}", encodings::modulate(&state) );
         let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
         let overlay = draw::Overlay::new(screens);
         // println!("Overlays:\n{}", round, overlay);
