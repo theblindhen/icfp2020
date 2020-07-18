@@ -30,7 +30,6 @@ pub enum Token {
     If0, // if0 0 x y = x    and    if0 1 x y = y
     // Lists
     Cons,  // cons x y z   =  (z x) y
-    Vec,   // Alias for Cons, perhaps meant for pairs-of-ints (pixels)
     Car,   // car (cons x y) = x    and    car x = x t
     Cdr,   // cdr (cons x y) = y    and    cdr x = x f
     Nil,   // We pretend it is a token (crossing fingers), but lambda def is: nil x = t

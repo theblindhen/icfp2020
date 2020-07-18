@@ -1,4 +1,17 @@
 use crate::aplang::*;
+use crate::interpreter::*;
+
+fn vnil() -> ValueTree {
+    ValueTree::VNil
+}
+
+fn vint(i: i64) -> ValueTree {
+    ValueTree::VInt(i)
+}
+
+fn vcons(hd: ValueTree, tl: ValueTree) -> ValueTree {
+    ValueTree::VCons(Box::from((hd, tl)))
+}
 
 fn modulate_int(mut val: i64) -> String {
     let mut encoding = String::from("");
@@ -51,40 +64,36 @@ fn demodulate_int(s: &str) -> (i64, &str) {
     }
 }
 
-pub fn demodulate(s: &str) -> (ApTree, &str) {
+pub fn demodulate(s: &str) -> (ValueTree, &str) {
     match &s[0..2] {
         // nil
-        "00" => (nil(), &s[2..]),
+        "00" => (vnil(), &s[2..]),
 
         // cons
         "11" => {
             let (head, remainder1) = demodulate(&s[2..]);
             let (tail, remainder2) = demodulate(remainder1);
-            (cons(head, tail), remainder2)
+            (vcons(head, tail), remainder2)
         }
 
         // neg
         "10" | "01" => {
             let (i, remainder) = demodulate_int(s);
-            (int(i), remainder)
+            (vint(i), remainder)
         }
 
         _ => panic!("cannot demodulate: {:?}", s),
     }
 }
 
-pub fn modulate(tree: &ApTree) -> String {
+pub fn modulate(tree: &ValueTree) -> String {
+    use ValueTree::*;
+
     match tree {
-        ApTree::T(Token::Int(val)) => return modulate_int(*val),
-        ApTree::T(Token::Nil) => return String::from("00"),
-        ApTree::Ap(ap_arg1) => match ap_arg1.as_ref() {
-            (ApTree::Ap(ap_arg2), tail) => match ap_arg2.as_ref() {
-                (ApTree::T(Token::Cons), head) => {
-                    return String::from("11") + &modulate(head) + &modulate(tail);
-                }
-                _ => panic!("cannot modulate list"),
-            },
-            _ => panic!("cannot modulate list"),
+        VInt(val) => modulate_int(*val),
+        VNil => String::from("00"),
+        VCons(args) => match args.as_ref() {
+            (head, tail) => String::from("11") + &modulate(head) + &modulate(tail),
         },
         _ => panic!("cannot modulate list"),
     }
@@ -152,34 +161,36 @@ mod test {
 
     #[test]
     fn test_modulate() {
-        assert_eq!(modulate(&nil()), "00");
-        assert_eq!(modulate(&cons(nil(), nil())), "110000");
-        assert_eq!(modulate(&cons(int(0), nil())), "1101000");
-        assert_eq!(modulate(&cons(int(1), int(2))), "110110000101100010");
+        use ValueTree::*;
+
+        assert_eq!(modulate(&vnil()), "00");
+        assert_eq!(modulate(&vcons(vnil(), vnil())), "110000");
+        assert_eq!(modulate(&vcons(vint(0), vnil())), "1101000");
+        assert_eq!(modulate(&vcons(vint(1), vint(2))), "110110000101100010");
         assert_eq!(
-            modulate(&cons(int(1), cons(int(2), nil()))),
+            modulate(&vcons(vint(1), vcons(vint(2), vnil()))),
             "1101100001110110001000"
         );
-        let inner_list = cons(int(2), cons(int(3), nil()));
+        let inner_list = vcons(vint(2), vcons(vint(3), vnil()));
         assert_eq!(
-            modulate(&cons(int(1), cons(inner_list, cons(int(4), nil())))),
+            modulate(&vcons(vint(1), vcons(inner_list, vcons(vint(4), vnil())))),
             "1101100001111101100010110110001100110110010000"
         );
     }
     #[test]
     fn test_demodulate() {
-        assert_eq!(demodulate("00"), (nil(), ""));
-        assert_eq!(demodulate("110000"), (cons(nil(), nil()), ""));
-        assert_eq!(demodulate("1101000"), (cons(int(0), nil()), ""));
-        assert_eq!(demodulate("110110000101100010"), (cons(int(1), int(2)), ""));
+        assert_eq!(demodulate("00"), (vnil(), ""));
+        assert_eq!(demodulate("110000"), (vcons(vnil(), vnil()), ""));
+        assert_eq!(demodulate("1101000"), (vcons(vint(0), vnil()), ""));
+        assert_eq!(demodulate("110110000101100010"), (vcons(vint(1), vint(2)), ""));
         assert_eq!(
             demodulate("1101100001110110001000"),
-            (cons(int(1), cons(int(2), nil())), "")
+            (vcons(vint(1), vcons(vint(2), vnil())), "")
         );
-        let inner_list = cons(int(2), cons(int(3), nil()));
+        let inner_list = vcons(vint(2), vcons(vint(3), vnil()));
         assert_eq!(
             demodulate("1101100001111101100010110110001100110110010000"),
-            (cons(int(1), cons(inner_list, cons(int(4), nil()))), "")
+            (vcons(vint(1), vcons(inner_list, vcons(vint(4), vnil()))), "")
         );
     }
 }

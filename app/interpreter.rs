@@ -131,8 +131,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         | Ap1(C, _)
         | Ap1(B, _)
         | Ap1(If0, _)
-        | Ap1(Cons, _)
-        | Ap1(Vec, _) => Id(wtree),
+        | Ap1(Cons, _) => Id(wtree),
 
         // Binary functions
         Ap2(fun, left, right) if is_eager_fun2(*fun) => {
@@ -154,7 +153,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         Ap2(True, left, right) => Step(reduce_left_loop(&left, env)),
         Ap2(False, left, right) => Step(reduce_left_loop(&right, env)),
         // Lazy binary functions
-        Ap2(Cons, _, _) | Ap2(Vec, _, _) => Id(wtree),
+        Ap2(Cons, _, _) => Id(wtree),
 
         // Higher arity functions are untouched on Ap2
         Ap2(S, _, _)
@@ -185,8 +184,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
             }
         }
 
-        Ap3(Cons, x, y, z)
-        | Ap3(Vec, x, y, z) => {
+        Ap3(Cons, x, y, z) => {
             // ap ap ap cons x0 x1 x2   =   ap ap x2 x0 x1
             let zx = reduce_left_loop(&ap(z.clone(), x.clone()), env);
             trace!("Reduce Cons by Church");
@@ -203,7 +201,6 @@ pub enum ValueTree {
     VNil,
     VInt(i64),
     VCons(Box<(ValueTree, ValueTree)>),
-    VVec(Box<(ValueTree, ValueTree)>),
 }
 
 fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
@@ -217,11 +214,7 @@ fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
             work_to_value_tree(reduce_left_loop(&left, env), env),
             work_to_value_tree(reduce_left_loop(&right, env), env),
         ))),
-        Ap2(Vec, left, right) => VVec(Box::new((
-            work_to_value_tree(reduce_left_loop(&left, env), env),
-            work_to_value_tree(reduce_left_loop(&right, env), env),
-        ))),
-        _ => panic!("Non-value work tree")
+       _ => panic!("Non-value work tree")
     }
 }
 
@@ -232,7 +225,6 @@ impl From<&ValueTree> for ApTree {
             ValueTree::VNil => T(Token::Nil),
             ValueTree::VCons(pair) => Ap(Box::new((Ap(Box::new((T(Token::Cons), (&pair.as_ref().0).into()))), (&pair.as_ref().1).into()))),
             ValueTree::VInt(i) => T(Token::Int(*i)),
-            ValueTree::VVec(pair) => Ap(Box::new((Ap(Box::new((T(Token::Vec), (&pair.as_ref().0).into()))), (&pair.as_ref().1).into()))),
         }
     }
 }
@@ -313,7 +305,7 @@ pub fn interact(prg_var: Var, env: &mut Env, state: &ValueTree, point: draw::Poi
         let mut points = vec![];
         for point in &ConsList(screen) {
             let (x, y) = match point {
-                    ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
+                    ValueTree::VCons(pair) => pair.as_ref(),
                     _ => panic!("Not a point"),
                 };
             let (x, y) = match (x, y) {
@@ -336,7 +328,7 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
     use ValueTree::*;
 
     let protocol = ApTree::T(Token::V(prg_var));
-    let mut vector = VVec(Box::new((VInt(point.0.into()), VInt(point.1.into()))));
+    let mut vector = VCons(Box::new((VInt(point.0.into()), VInt(point.1.into()))));
     loop {
         let (flag, new_state, data) = {
             let applied_protocol = ap(ap(protocol.clone(), state.into()), vector.into());
@@ -407,8 +399,7 @@ pub fn send(data: &ValueTree) -> ValueTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
     println!("Sending request to {}...", url);
 
-    // TODO: define modulate for ValueTree instead of ApTree
-    let body = crate::encodings::modulate(&data.into());
+    let body = crate::encodings::modulate(data);
     trace!("POSTing: {}", body);
 
     let reply = ureq::post(url)
@@ -418,9 +409,8 @@ pub fn send(data: &ValueTree) -> ValueTree {
         .expect("HTTP POST failed");
 
     trace!("Got POST reply: {}", reply);
-    let mut env = Env::default();
-    // TODO: define demodulate to ValueTree instead of ApTree
-    work_to_value_tree(reduce_left_loop(&crate::encodings::demodulate(&reply).0, &mut env), &mut env)
+
+    crate::encodings::demodulate(&reply).0
 }
 
 #[cfg(test)]
