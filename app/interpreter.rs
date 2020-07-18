@@ -1,5 +1,6 @@
 use crate::aplang::*;
 use crate::aplang::ap;
+use crate::draw;
 
 use std::collections::HashMap;
 use log::*;
@@ -203,17 +204,23 @@ pub fn interpret_program(program : &Program) -> (ApTree, Env) {
     (reduce(env.get(&last_var).unwrap(), &env), env)
 }
 
-pub fn interact(program: &Program) -> (ApTree /* newState */, ApTree /* draw data */) {
+pub fn interact(program : &Program) -> (ApTree, draw::Screen) {
+    let (protocol, env) = interpret_program(program);
+    let (new_state, draw_data) = interact0(&protocol, &env);
+    let screen = draw::image_from_list(coordinates_of_data(&draw_data));
+    (new_state, screen)
+}
+
+fn interact0(protocol: &ApTree, env: &Env) -> (ApTree /* newState */, ApTree /* draw data */) {
     use Word::WT;
     use ApTree::T;
 
-    let (protocol, env) = interpret_program(program);
     let mut vector = ap(ap(T(Token::Vec), int(0)), int(0));
     let mut state = nil();
     loop {
         let (flag, new_state, data) = {
             let applied_protocol = ap(ap(protocol.clone(), state), vector);
-            let tuple = reduce(&applied_protocol, &env);
+            let tuple = reduce(&applied_protocol, env);
             match get_arity(&tuple) {
                 ApArity::Binary(Token::Cons, flag, tail) =>
                     match get_arity(tail) {
@@ -265,7 +272,7 @@ impl<'a> iter::Iterator for PointIterator<'a> {
     }
 }
 
-impl<'a> iter::IntoIterator for PointCollection<'a> {
+impl<'a> iter::IntoIterator for &PointCollection<'a> {
     type Item = (u32, u32);
     type IntoIter = PointIterator<'a>;
     fn into_iter(self) -> Self::IntoIter { PointIterator(self.0) }

@@ -32,9 +32,9 @@ struct MyOpt {
     #[structopt(default_value = "1000", short, long)]
     timeout: u32,
 
-    /// Lex galaxy.txt, then quit
+    /// Run interactively
     #[structopt(short, long)]
-    lex_only: bool,
+    interactive: bool,
 
     /// Server URL, provided by organizers
     #[structopt(name = "SERVER_URL")]
@@ -100,11 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
-    if opt.lex_only {
+    if opt.interactive {
         info!("Lexing...");
         let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        let (tree, env) = interpreter::interact(&program);
+        let (_new_state, screen) = interpreter::interact(&program);
+        println!("{}", screen);
         return Ok(());
     }
 
