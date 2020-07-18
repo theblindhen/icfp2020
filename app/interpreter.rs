@@ -278,7 +278,7 @@ impl From<ValueTree> for ApTree {
 
 pub use value_tree_parser::parse_value_tree;
 
-mod value_tree_parser {
+pub mod value_tree_parser {
     use super::*;
     use crate::nom_helpers::*;
 
