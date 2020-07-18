@@ -73,24 +73,33 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
             // Inc, Dec, Neg, Pwr2, Add, Multiply, Div, Eq, Lt, If0,
             // Car, Cdr, IsNil
             match (fun, reduce_left_loop(&arg, &env)) {
-                (Inc, WorkT(Int(n))) => Step(WorkT(Int(n+1))),
-                (Dec, WorkT(Int(n))) => Step(WorkT(Int(n-1))),
+                (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
+                (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
                 (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
                 (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
                 (Add, WorkT(Int(n))) => Id(Ap1(Add, int(n))),
                 (I, body) => Step(body),
                 // TODO: Add more
-                _ => panic!("Eager arg should evaluate to token")
+                _ => panic!("Eager arg should evaluate to token"),
             }
-        },
+        }
         // Lazy applied on first arg (when partially applied):
         // True, False,  S, C, B, Cons, Vec
-        Ap1(True, _) | Ap1(False, _) | Ap1(S, _) | Ap1(C, _) | Ap1(B, _) | Ap1(Cons, _) | Ap1(Vec, _)  => Id(wtree),
+        Ap1(True, _)
+        | Ap1(False, _)
+        | Ap1(S, _)
+        | Ap1(C, _)
+        | Ap1(B, _)
+        | Ap1(Cons, _)
+        | Ap1(Vec, _) => Id(wtree),
 
         Ap2(Add, left, right) => {
-            match (reduce_left_loop(&left, &env), reduce_left_loop(&right, &env)) {
-                (WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x+y))),
-                _ => panic!("Add with non-int args")
+            match (
+                reduce_left_loop(&left, &env),
+                reduce_left_loop(&right, &env),
+            ) {
+                (WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x + y))),
+                _ => panic!("Add with non-int args"),
             }
         }
         Ap2(True, left, right) => Step(reduce_left_loop(&left, &env)),
