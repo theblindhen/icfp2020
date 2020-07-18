@@ -46,6 +46,29 @@ pub enum Token {
 
 }
 
+pub fn is_eager_fun1(fun: Token) -> bool {
+    use Token::*;
+    match fun {
+        Inc | Dec | Neg | Pwr2 | Add | Multiply | Div | Eq | Lt | If0 | Car | Cdr | IsNil => true,
+        _ => false,
+    }
+}
+
+// fn is_eager_fun2(fun: Token) {
+//     match fun {
+//         [Inc, Dec, Neg, Pwr2, Add, Multiply, Div, Eq, Lt, If0, Car, Cdr, IsNil] => true,
+//         _ => false,
+//     }
+// }
+
+// fn numerical_fun(fun: Token) {
+//     //TODO
+//     match fun {
+//         [Inc, Dec] => true,
+//         _ => false,
+//     }
+// }
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
     WAp,

@@ -36,6 +36,7 @@ fn assignment(line: &str) -> IResult<&str, Assignment> {
     n::separated_pair(variable, n::tag(" ="), aplist)(line)
 }
 
+
 fn variable(s: &str) -> IResult<&str, Var> {
     n::map(
         n::alt((
@@ -46,7 +47,7 @@ fn variable(s: &str) -> IResult<&str, Var> {
     )(s)
 }
 
-fn aplist(s: &str) -> IResult<&str, Vec<Word>> {
+pub fn aplist(s: &str) -> IResult<&str, Vec<Word>> {
     n::many1(n::preceded(n::tag(" "), word))(s)
 }
 
@@ -62,6 +63,7 @@ fn token(input: &str) -> IResult<&str, Token> {
     n::alt((
         n::map(n::map_res(decint, |s: &str| s.parse()), Int),
         n::value(Add, n::tag("add")),
+        n::value(Inc, n::tag("inc")),
         n::value(Car, n::tag("car")),
         n::value(Cdr, n::tag("cdr")),
         n::value(Cons, n::tag("cons")),
