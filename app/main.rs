@@ -10,6 +10,7 @@ mod nom_helpers;
 
 use crate::aplang::*;
 use crate::encodings::*;
+use crate::draw::*;
 
 use structopt::StructOpt;
 use std::path::PathBuf;
@@ -37,7 +38,7 @@ struct MyOpt {
     state: Option<String>,
 
     #[structopt(long)]
-    first: Option<String>,
+    steps: Option<String>, // Format: "(x,y) (x,y) ... (x,y)"
 
     #[structopt(long)]
     allzero: bool,
@@ -46,6 +47,32 @@ struct MyOpt {
     make_join_message_with_key: Option<i64>,
 }
 
+// Parenthesised, comma-separated point
+pub fn parse_point_paren(s : &str) -> Option<Point> {
+    let words: Vec<_> = s[1..s.len()-1].split(',').collect();
+    match &words[..] {
+        [x, y] => {
+            match (x.parse(), y.parse()) {
+                (Ok(x), (Ok(y))) => Some(Point(x,y)),
+                _ => None
+            }
+        },
+        _ => None
+    }
+}
+
+// Space-separated list of parenthesised points
+pub fn parse_points(s : &str) -> Option<Vec<Point>> {
+    let words: Vec<_> = s.split_whitespace().collect();
+    let rev : Option<Vec<Point>> = words.into_iter().map(parse_point_paren).collect();
+    match rev {
+        None => None,
+        Some(mut rev) => {
+            rev.reverse();
+            Some(rev)
+        }
+    }
+}
 
 // Demonstrates sending an HTTP request and decoding the response as JSON.
 fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -101,14 +128,15 @@ fn main() {
         };
     let (prg_var, env) = interpreter::parse_program(&program);
     let mut env = env;
-    let mut point =
-        match opt.first {
-            None => draw::point_from_terminal(0, 0).unwrap(),
-            Some(sints) =>
-                match draw::parse_two_ints(&sints[1..sints.len()-1]) {
-                    Some(point) => point,
-                    None => draw::point_from_terminal(0, 0).unwrap(),
+    let mut points : Vec<Point> =
+        match opt.steps {
+            None => vec![],
+            Some(steps) => {
+                match parse_points(&steps) {
+                    Some(points) => points,
+                    _ => vec![]
                 }
+            }
         };
     let mut state =
         match opt.state {
@@ -119,7 +147,24 @@ fn main() {
             }
         };
     let mut round = 0;
+    let mut screen_offset = Point(0,0);
     loop {
+        let point =
+            match points.pop() {
+                Some(p) => p,
+                None => {
+                    if opt.allzero {
+                        Point(0,0)
+                    } else {
+                        match point_from_terminal(screen_offset.0, screen_offset.1) {
+                            None => return,
+                            Some(new_point) => {
+                                new_point
+                            }
+                        }
+                    }
+                }
+            };
         round += 1;
         println!("ROUND {}", round);
         let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
@@ -129,17 +174,8 @@ fn main() {
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
         overlay.dump_image(&format!("imgs/round_{:03}.png", round));
-        if opt.allzero {
-            point = draw::Point(0,0)
-        } else {
-            match draw::point_from_terminal(overlay.xstart, overlay.ystart) {
-                None => return,
-                Some(new_point) => {
-                    point = new_point;
-                }
-            }
-        }
         state = new_state;
+        screen_offset = Point(overlay.xstart, overlay.ystart);
     }
 }
 
