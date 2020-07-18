@@ -196,7 +196,6 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         Ap3(Cons, x, y, z) => {
             // ap ap ap cons x0 x1 x2   =   ap ap x2 x0 x1
             let zx = reduce_left_loop(ap(z, x), env);
-            trace!("Reduce Cons by Church");
             Step(explicit_ap(zx, y))
         }
 
