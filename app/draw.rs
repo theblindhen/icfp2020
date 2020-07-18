@@ -137,6 +137,35 @@ impl Screen {
         w.write_image_data(&data).unwrap();
     }   
 }
+impl fmt::Display for Screen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let x_frame = |x: u32| if x as i64 == -self.xstart { '|' } else { '-' };
+        write!(f, " ")?;
+        for x in 0..self.width() {
+            write!(f, "{}", x_frame(x))?
+        }
+        writeln!(f, " ")?;
+        for y in 0..self.height() {
+            let y_frame = if y as i64 == -self.ystart { '-' } else { '|' };
+            write!(f, "{}", y_frame)?;
+            for x in 0..self.width() {
+                write!(f, "{}", if self.at_abs(x, y) { '*' } else { ' ' })?
+            }
+            writeln!(f, "{}", y_frame)?;
+        }
+ 
+        write!(f, " ")?;
+        for x in 0..self.width() {
+            write!(f, "{}", x_frame(x))?
+        }
+        writeln!(f, " ")?;
+        Ok(())
+    }
+}
+
+
+
+
 
 pub struct Overlay{
     screens: Vec<Screen>,  // vec of rows
@@ -186,8 +215,6 @@ impl Overlay {
             let y = ly as i64 + self.ystart;
             for lx in 0..width {
                 let x = lx as i64 + self.xstart;
-                // TODO: Blend screens
-                // TODO: Add coordinate systems
                 let ptr = 4*(ly*width + lx);
                 let mut coli = 0;
                 let mut color =
@@ -235,11 +262,11 @@ fn blend_colors(a : RGBA, b : RGBA) -> RGBA {
        //   b: (c1.b * c1.a  + c2.b * c2.a * (1 - c1.a)) / a,
        //   a: a
        // }
-    let rA = fof8(a.3)  + fof8(b.3)*(1.-fof8(a.3));
-    let rr = fto8( (fof8(a.0) * fof8(a.3) + fof8(b.0) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let rg = fto8( (fof8(a.1) * fof8(a.3) + fof8(b.1) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let rb = fto8( (fof8(a.2) * fof8(a.3) + fof8(b.2) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let r = (rr, rg, rb, fto8(rA));
+    let r_a = fof8(a.3)  + fof8(b.3)*(1.-fof8(a.3));
+    let rr = fto8( (fof8(a.0) * fof8(a.3) + fof8(b.0) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let rg = fto8( (fof8(a.1) * fof8(a.3) + fof8(b.1) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let rb = fto8( (fof8(a.2) * fof8(a.3) + fof8(b.2) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let r = (rr, rg, rb, fto8(r_a));
     r
 }
 
