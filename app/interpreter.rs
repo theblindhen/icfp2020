@@ -29,9 +29,13 @@ impl Env {
         use VarTree::*;
         match self.m.get(&v) {
             Some(Open(aptree)) => {
-                let wtree = reduce_left_loop(&aptree.clone(), self);
-                self.m.insert(v, Reduced(wtree.clone()));
-                wtree
+                if let Some(Open(aptree)) = self.m.remove(&v) {
+                    let wtree = reduce_left_loop(aptree, self);
+                    self.m.insert(v, Reduced(wtree.clone()));
+                    wtree
+                } else {
+                    panic!()
+                }
             },
             Some(Reduced(wtree)) => wtree.clone(),
             None => panic!("Unknown variable")
@@ -59,7 +63,7 @@ enum Reduction {
     Step(WorkTree),
 }
 
-fn reduce_left_loop(tree: &ApTree, env: &mut Env) -> WorkTree {
+fn reduce_left_loop(tree: ApTree, env: &mut Env) -> WorkTree {
     use Reduction::*;
     let mut red = reduce_tree(tree, env);
     loop {
@@ -80,21 +84,18 @@ fn explicit_ap(fun: WorkTree, arg: ApTree) -> WorkTree {
     }
 }
 
-fn reduce_tree(tree: &ApTree, env: &mut Env) -> Reduction {
+fn reduce_tree(tree: ApTree, env: &mut Env) -> Reduction {
     use ApArity::*;
     use ApTree::*;
     use Reduction::*;
     use WorkTree::*;
 
-    match &tree {
-        T(Token::V(v)) => Step(env.get_and_reduce(*v)),
-        T(token) => Id(WorkT(*token)),
+    match tree {
+        T(Token::V(v)) => Step(env.get_and_reduce(v)),
+        T(token) => Id(WorkT(token)),
         Ap(body) => {
-            let (oper, arg) = body.as_ref();
-            Step(explicit_ap(
-                reduce_left_loop(oper, env),
-                arg.clone(),
-            ))
+            let (oper, arg) = *body;
+            Step(explicit_ap(reduce_left_loop(oper, env), arg))
         }
     }
 }
@@ -104,18 +105,18 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
     use Token::*;
     use WorkTree::*;
 
-    match &wtree {
+    match wtree {
         WorkT(_) => Id(wtree),
 
         // Unary functions
-        Ap1(fun, arg) if is_eager_fun1(*fun) => match (fun, reduce_left_loop(&arg, env)) {
+        Ap1(fun, arg) if is_eager_fun1(fun) => match (fun, reduce_left_loop(arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
             (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
             (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
             (I, body) => Step(body),
-            (Car, Ap2(Cons, car, _)) => Step(reduce_left_loop(&car, env)),
-            (Cdr, Ap2(Cons, _, cdr)) => Step(reduce_left_loop(&cdr, env)),
+            (Car, Ap2(Cons, car, _)) => Step(reduce_left_loop(car, env)),
+            (Cdr, Ap2(Cons, _, cdr)) => Step(reduce_left_loop(cdr, env)),
             (IsNil, WorkT(Nil)) => Step(WorkT(True)),
             (IsNil, Ap2(Cons, _, _)) => Step(WorkT(False)),
             _ => panic!("Eager arg should evaluate to token"),
@@ -136,11 +137,11 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         | Ap1(Cons, _) => Id(wtree),
 
         // Binary functions
-        Ap2(fun, left, right) if is_eager_fun2(*fun) => {
+        Ap2(fun, left, right) if is_eager_fun2(fun) => {
             match (
                 fun,
-                reduce_left_loop(&left, env),
-                reduce_left_loop(&right, env),
+                reduce_left_loop(left, env),
+                reduce_left_loop(right, env),
             ) {
                 (Add, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x + y))),
                 (Multiply, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x * y))),
@@ -152,8 +153,8 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
                 _ => panic!("Binary integer ops with non-int args"),
             }
         }
-        Ap2(True, left, right) => Step(reduce_left_loop(&left, env)),
-        Ap2(False, left, right) => Step(reduce_left_loop(&right, env)),
+        Ap2(True, left, right) => Step(reduce_left_loop(left, env)),
+        Ap2(False, left, right) => Step(reduce_left_loop(right, env)),
         // Lazy binary functions
         Ap2(Cons, _, _) => Id(wtree),
 
@@ -166,31 +167,31 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
 
         Ap3(S, x, y, z) => {
             let zvar = env.fresh_var();
-            env.insert(zvar, z.clone());
-            let xz = reduce_left_loop(&ap(x.clone(), ApTree::T(V(zvar))), env);
-            Step(explicit_ap(xz, ap(y.clone(), ApTree::T(V(zvar)))))
+            env.insert(zvar, z);
+            let xz = reduce_left_loop(ap(x, ApTree::T(V(zvar))), env);
+            Step(explicit_ap(xz, ap(y, ApTree::T(V(zvar)))))
         }
         Ap3(C, x, y, z) => {
-            let xz = reduce_left_loop(&ap(x.clone(), z.clone()), env);
-            Step(explicit_ap(xz, y.clone()))
+            let xz = reduce_left_loop(ap(x, z), env);
+            Step(explicit_ap(xz, y))
         }
         Ap3(B, x, y, z) => {
-            let x = reduce_left_loop(&x, env);
-            Step(explicit_ap(x, ap(y.clone(), z.clone())))
+            let x = reduce_left_loop(x, env);
+            Step(explicit_ap(x, ap(y, z)))
         }
         Ap3(If0, cond, left, right) => {
-            match reduce_left_loop(&cond, env) {
-                WorkT(Int(0)) => Step(reduce_left_loop(&left, env)),
-                WorkT(Int(1)) => Step(reduce_left_loop(&right, env)),
+            match reduce_left_loop(cond, env) {
+                WorkT(Int(0)) => Step(reduce_left_loop(left, env)),
+                WorkT(Int(1)) => Step(reduce_left_loop(right, env)),
                  _ => panic!("If0 applied illegal conditional")
             }
         }
 
         Ap3(Cons, x, y, z) => {
             // ap ap ap cons x0 x1 x2   =   ap ap x2 x0 x1
-            let zx = reduce_left_loop(&ap(z.clone(), x.clone()), env);
+            let zx = reduce_left_loop(ap(z, x), env);
             trace!("Reduce Cons by Church");
-            Step(explicit_ap(zx, y.clone()))
+            Step(explicit_ap(zx, y))
         }
 
         e => panic!("Unimplemented: {:#?}", e),
@@ -248,8 +249,8 @@ fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
         WorkT(Int(val)) => VInt(val),
         WorkT(Nil) => VNil,
         Ap2(Cons, left, right) => VCons(Box::new((
-            work_to_value_tree(reduce_left_loop(&left, env), env),
-            work_to_value_tree(reduce_left_loop(&right, env), env),
+            work_to_value_tree(reduce_left_loop(left, env), env),
+            work_to_value_tree(reduce_left_loop(right, env), env),
         ))),
        _ => panic!("Non-value work tree")
     }
@@ -367,7 +368,7 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
     loop {
         let (flag, new_state, data) = {
             let applied_protocol = ap(ap(protocol.clone(), state.into()), vector.into());
-            let tuple = work_to_value_tree(reduce_left_loop(&applied_protocol, env), env);
+            let tuple = work_to_value_tree(reduce_left_loop(applied_protocol, env), env);
             match tuple {
                 VCons(pair) => {
                     let flag = match pair.0 {
@@ -383,7 +384,7 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
                                     let data = pair.0;
                                     trace!("data = {:?}", data);
                                     assert_eq!(pair.1, ValueTree::VNil);
-                                    (flag, new_state.clone(), data.clone())
+                                    (flag, new_state, data)
                                 },
                                 _ => panic!("interact: no data"),
                             }
@@ -501,89 +502,89 @@ mod test {
     fn test_reduce_left_loop() {
         let mut env = Env::default();
         env.insert(Var(99), tree_of_str("ap :99 :99")); // diverges
-        assert_eq!(reduce_left_loop(&tree_of_str("ap inc 0"), &mut env), wint(1));
+        assert_eq!(reduce_left_loop(tree_of_str("ap inc 0"), &mut env), wint(1));
         // assert_eq!(
         //     reduce_left_loop(&tree_of_str("ap add ap inc 0"), &mut env),
         //     wap1(Add, int(1))
         // );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap add 0 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap add 0 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap add 0 ap inc 0"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap add 0 ap inc 0"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap add ap inc 1 ap inc 0"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap add ap inc 1 ap inc 0"), &mut env),
             wint(3)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap add ap ap add 0 ap inc 0 2"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap add ap ap add 0 ap inc 0 2"), &mut env),
             wint(3)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap t 1 :99"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap t 1 :99"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap f :99 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap f :99 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap s add inc 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap s add inc 1"), &mut env),
             wint(3)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap s t :99 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap s t :99 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap car ap ap cons 0 nil"), &mut env),
+            reduce_left_loop(tree_of_str("ap car ap ap cons 0 nil"), &mut env),
             wint(0)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap car ap ap cons 0 :99"), &mut env),
+            reduce_left_loop(tree_of_str("ap car ap ap cons 0 :99"), &mut env),
             wint(0)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap isnil nil"), &mut env),
+            reduce_left_loop(tree_of_str("ap isnil nil"), &mut env),
             wbool(true)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap isnil ap ap cons :99 :99"), &mut env),
+            reduce_left_loop(tree_of_str("ap isnil ap ap cons :99 :99"), &mut env),
             wbool(false)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap c lt 0 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap c lt 0 1"), &mut env),
             wbool(false)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap c t :99 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap c t :99 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap ap b f :99 :99 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap ap b f :99 :99 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap if0 0 1 :99"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap if0 0 1 :99"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap ap ap if0 1 :99 1"), &mut env),
+            reduce_left_loop(tree_of_str("ap ap ap if0 1 :99 1"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap car ap ap cons 1 ap ap cons 2 3"), &mut env),
+            reduce_left_loop(tree_of_str("ap car ap ap cons 1 ap ap cons 2 3"), &mut env),
             wint(1)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap car ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
+            reduce_left_loop(tree_of_str("ap car ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
             wint(2)
         );
         assert_eq!(
-            reduce_left_loop(&tree_of_str("ap cdr ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
+            reduce_left_loop(tree_of_str("ap cdr ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
             wint(3)
         );
     }
