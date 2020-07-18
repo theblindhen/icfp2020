@@ -243,9 +243,9 @@ fn interact0(protocol: &ApTree, env: &Env) -> (ApTree /* newState */, ApTree /* 
     }
 }
 
-pub struct PointCollection<'a>(&'a ApTree);
+struct PointCollection<'a>(&'a ApTree);
 
-pub struct PointIterator<'a>(&'a ApTree);
+struct PointIterator<'a>(&'a ApTree);
 
 impl<'a> iter::Iterator for PointIterator<'a> {
     type Item = (u32, u32);
