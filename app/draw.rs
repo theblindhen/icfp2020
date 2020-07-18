@@ -36,6 +36,19 @@ pub struct Screen {
     ystart: i64, // can be 0 or negative
 }
 
+pub fn parse_two_ints(s : &str) -> Option<Point> {
+    let words: Vec<_> = s.split_whitespace().collect();
+    match &words[..] {
+        [x, y] => {
+            match (x.parse(), y.parse()) {
+                (Ok(x), (Ok(y))) => Some(Point(x,y)),
+                _ => None
+            }
+        },
+        _ => None
+    }
+}
+
 pub fn point_from_terminal(xstart : i64, ystart : i64) -> Option<Point> {
     // println!("Coordinate offsets on overlay image were ({}, {})", xstart, ystart);
     println!("Type image coordinates, separated by a space (i.e. as given in an image viewer)");
@@ -46,19 +59,10 @@ pub fn point_from_terminal(xstart : i64, ystart : i64) -> Option<Point> {
         if stdin.read_line(&mut buf).unwrap() == 0 {
             return None
         }
-        let words: Vec<_> = buf.split_whitespace().collect();
-        match &words[..] {
-            [x, y] => {
-                match (x.parse(), y.parse()) {
-                    (Ok(x), (Ok(y))) => {
-                        let p = Point(x,y); // For type infer
-                        return Some(Point(x+xstart,y+ystart))
-                    }
-                    _ => ()
-                }
-            }
+        match parse_two_ints(&buf) {
+            Some(Point(x,y)) => return Some(Point(x+xstart,y+ystart)),
             _ => ()
-        }
+        };
         println!("Bad input. Try again.")
     }
 }
