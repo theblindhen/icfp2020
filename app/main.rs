@@ -35,6 +35,12 @@ struct MyOpt {
     #[structopt(short, long)]
     state: Option<String>,
 
+    #[structopt(short, long)]
+    xstart: Option<i64>,
+
+    #[structopt(short, long)]
+    ystart: Option<i64>,
+
     #[structopt(long)]
     make_join_message_with_key: Option<i64>,
 }
@@ -94,7 +100,11 @@ fn main() {
         };
     let (prg_var, env) = interpreter::parse_program(&program);
     let mut env = env;
-    let mut point = draw::Point(0, 0);
+    let (xstart, ystart) = match (opt.xstart, opt.ystart) {
+        (Some(xstart), Some(ystart)) => (xstart, ystart),
+        _ => (0, 0),
+    };
+    let mut point = draw::point_from_terminal(xstart, ystart).unwrap();
     let mut state =
         match opt.state {
             None => interpreter::initial_state(),
@@ -107,9 +117,9 @@ fn main() {
     loop {
         round += 1;
         println!("ROUND {}", round);
-        println!("State\n{}", encodings::modulate(&state) );
         let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
         let overlay = draw::Overlay::new(screens);
+        println!("State\n{}\nOverlays: x={}, y={}", encodings::modulate(&state), overlay.xstart, overlay.ystart);
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
         overlay.dump_image(&format!("imgs/round_{:03}.png", round));
