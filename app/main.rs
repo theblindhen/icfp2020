@@ -102,11 +102,14 @@ fn main() {
     let mut env = env;
     let mut point = draw::Point(0, 0);
     let mut state = interpreter::initial_state();
+    let mut round = 0;
     loop {
+        round += 1;
+        println!("ROUND {}", round);
         let (new_state, screens) = interpreter::interact(prg_var, &mut env, &state, point);
         for (i, screen) in screens.into_iter().enumerate() {
-            println!("Screen {}:\n{}\n", i, screen);
-            // screen.dump_image("imgs/screen_{}.png" i)
+            println!("Screen {}_{}:\n{}\n", round, i, screen);
+            screen.dump_image(&format!("imgs/screen_{}_{}.png", round, i))
         }
         match draw::point_from_terminal() {
             None => return,
