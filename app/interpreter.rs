@@ -6,6 +6,7 @@ use log::*;
 use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter;
+use std::fmt;
 
 enum VarTree {
     Open(ApTree),
@@ -201,6 +202,41 @@ pub enum ValueTree {
     VNil,
     VInt(i64),
     VCons(Box<(ValueTree, ValueTree)>),
+}
+
+impl fmt::Display for ValueTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ValueTree::*;
+
+        let is_cons_list = {
+            let mut node = self;
+            while let VCons(pair) = node {
+                node = &pair.1;
+            }
+            node == &VNil
+        };
+
+        if is_cons_list {
+            write!(f, "[")?;
+            let mut node = self;
+            while let VCons(pair) = node {
+                write!(f, "{}", pair.0)?;
+                node = &pair.1;
+                if node != &VNil {
+                    write!(f, ", ")?;
+                }
+            }
+            write!(f, "]")?;
+
+        } else {
+            match self {
+                VCons(pair) => write!(f, "({}, {})", pair.0, pair.1)?,
+                VInt(i) => write!(f, "{}", i)?,
+                VNil => panic!("Impossible: nil is a cons list"),
+            }
+        }
+        Ok(())
+    }
 }
 
 fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
@@ -418,6 +454,7 @@ mod test {
     use Token::*;
     use Word::*;
     use WorkTree::*;
+    use ValueTree::*;
 
     fn tree_of_str(expr: &str) -> ApTree {
         match crate::lexer::aplist(&(String::from(" ") + expr)) {
@@ -444,6 +481,19 @@ mod test {
 
     pub fn wint(val: i64) -> WorkTree {
         WorkT(Int(val))
+    }
+
+    #[test]
+    fn test_pretty_print() {
+        use crate::encodings::{vcons, vnil, vint};
+        assert_eq!(format!("{}", vnil()), "[]");
+        assert_eq!(format!("{}", vcons(vint(1), vnil())), "[1]");
+        assert_eq!(format!("{}", vcons(vint(1), vcons(vint(2), vnil()))), "[1, 2]");
+        assert_eq!(format!("{}", vcons(vint(1), vint(2))), "(1, 2)");
+        assert_eq!(format!("{}", vcons(vcons(vint(-12), vnil()), vnil())), "[[-12]]");
+        assert_eq!(format!("{}", vcons(vnil(), vcons(vint(-12), vnil()))), "[[], -12]");
+        assert_eq!(format!("{}", vcons(vcons(vint(1), vint(2)), vnil())), "[(1, 2)]");
+        assert_eq!(format!("{}", vcons(vcons(vint(1), vint(2)), vcons(vcons(vint(3), vint(4)), vnil()))), "[(1, 2), (3, 4)]");
     }
 
     #[test]
