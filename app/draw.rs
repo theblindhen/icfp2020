@@ -36,8 +36,9 @@ pub struct Screen {
     ystart: i64, // can be 0 or negative
 }
 
-pub fn point_from_terminal() -> Option<Point> {
-    println!("Type coordinates, separated by a space");
+pub fn point_from_terminal(xstart : i64, ystart : i64) -> Option<Point> {
+    // println!("Coordinate offsets on overlay image were ({}, {})", xstart, ystart);
+    println!("Type image coordinates, separated by a space (i.e. as given in an image viewer)");
     let mut buf = String::new();
     let mut stdin = std::io::stdin();
     let mut stdin = stdin.lock();
@@ -49,7 +50,10 @@ pub fn point_from_terminal() -> Option<Point> {
         match &words[..] {
             [x, y] => {
                 match (x.parse(), y.parse()) {
-                    (Ok(x), (Ok(y))) => return Some(Point(x, y)),
+                    (Ok(x), (Ok(y))) => {
+                        let p = Point(x,y); // For type infer
+                        return Some(Point(x+xstart,y+ystart))
+                    }
                     _ => ()
                 }
             }
@@ -137,13 +141,42 @@ impl Screen {
         w.write_image_data(&data).unwrap();
     }   
 }
+impl fmt::Display for Screen {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let x_frame = |x: u32| if x as i64 == -self.xstart { '|' } else { '-' };
+        write!(f, " ")?;
+        for x in 0..self.width() {
+            write!(f, "{}", x_frame(x))?
+        }
+        writeln!(f, " ")?;
+        for y in 0..self.height() {
+            let y_frame = if y as i64 == -self.ystart { '-' } else { '|' };
+            write!(f, "{}", y_frame)?;
+            for x in 0..self.width() {
+                write!(f, "{}", if self.at_abs(x, y) { '*' } else { ' ' })?
+            }
+            writeln!(f, "{}", y_frame)?;
+        }
+ 
+        write!(f, " ")?;
+        for x in 0..self.width() {
+            write!(f, "{}", x_frame(x))?
+        }
+        writeln!(f, " ")?;
+        Ok(())
+    }
+}
+
+
+
+
 
 pub struct Overlay{
     screens: Vec<Screen>,  // vec of rows
-    width: u32,
-    height: u32,
-    xstart: i64, // can be 0 or negative
-    ystart: i64, // can be 0 or negative
+    pub width: u32,
+    pub height: u32,
+    pub xstart: i64, // can be 0 or negative
+    pub ystart: i64, // can be 0 or negative
 }
 
 impl Overlay {
@@ -186,8 +219,6 @@ impl Overlay {
             let y = ly as i64 + self.ystart;
             for lx in 0..width {
                 let x = lx as i64 + self.xstart;
-                // TODO: Blend screens
-                // TODO: Add coordinate systems
                 let ptr = 4*(ly*width + lx);
                 let mut coli = 0;
                 let mut color =
@@ -212,6 +243,8 @@ impl Overlay {
     }   
 }
 
+
+
 fn fto8(f : f32) -> u8 {
     let i = (f * 256.) as i64;
     if i < 0 {
@@ -235,11 +268,11 @@ fn blend_colors(a : RGBA, b : RGBA) -> RGBA {
        //   b: (c1.b * c1.a  + c2.b * c2.a * (1 - c1.a)) / a,
        //   a: a
        // }
-    let rA = fof8(a.3)  + fof8(b.3)*(1.-fof8(a.3));
-    let rr = fto8( (fof8(a.0) * fof8(a.3) + fof8(b.0) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let rg = fto8( (fof8(a.1) * fof8(a.3) + fof8(b.1) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let rb = fto8( (fof8(a.2) * fof8(a.3) + fof8(b.2) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
-    let r = (rr, rg, rb, fto8(rA));
+    let r_a = fof8(a.3)  + fof8(b.3)*(1.-fof8(a.3));
+    let rr = fto8( (fof8(a.0) * fof8(a.3) + fof8(b.0) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let rg = fto8( (fof8(a.1) * fof8(a.3) + fof8(b.1) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let rb = fto8( (fof8(a.2) * fof8(a.3) + fof8(b.2) * fof8(b.3) * (1. - fof8(a.3)) )/r_a );
+    let r = (rr, rg, rb, fto8(r_a));
     r
 }
 
