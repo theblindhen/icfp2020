@@ -41,8 +41,8 @@ fn join_msg(player_key: i64) -> ValueTree {
 
 fn start_msg(player_key: i64) -> ValueTree {
     let initial_params = vcons(
-        vint(0),
-        vcons(vint(0), vcons(vint(0), vcons(vint(0), vnil()))),
+        vint(1),
+        vcons(vint(1), vcons(vint(1), vcons(vint(1), vnil()))),
     );
 
     vcons(
