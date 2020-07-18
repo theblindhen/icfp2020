@@ -2,21 +2,28 @@ use crate::bits2d::Bits2D;
 use std::iter::{IntoIterator, Iterator};
 use std::fmt;
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
+pub struct Point(pub u32, pub u32);
+
 pub struct Screen(Bits2D);
+
+pub fn point_from_terminal() -> Option<Point> {
+    None // TODO
+}
 
 pub fn image_from_list<Collection>(points: Collection) -> Screen
 where
-    for<'a> &'a Collection: IntoIterator<Item = (u32, u32)>,
+    for<'a> &'a Collection: IntoIterator<Item = Point>,
 {
     let mut max_x: u32 = 0;
     let mut max_y: u32 = 0;
-    for (x, y) in &points {
+    for Point(x, y) in &points {
         max_x = max_x.max(x);
         max_y = max_y.max(y);
     }
 
     let mut image = Bits2D::new(max_x + 1, max_y + 1);
-    for (x, y) in &points {
+    for Point(x, y) in &points {
         image.set(x, y);
     }
     Screen(image)

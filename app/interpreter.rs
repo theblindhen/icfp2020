@@ -314,19 +314,19 @@ pub fn interpret_program(program: &Program) -> (ApTree, Env) {
     (reduce(env.get(&last_var).unwrap(), &env), env)
 }
 
-pub fn interact(program: &Program) -> (ApTree, draw::Screen) {
-    let (protocol, env) = interpret_program(program);
-    let (new_state, draw_data) = interact0(&protocol, &env);
+pub fn initial_state() -> ApTree { nil() }
+
+pub fn interact(protocol: &ApTree, env: &Env, state: &ApTree, point: draw::Point) -> (ApTree, draw::Screen) {
+    let (new_state, draw_data) = interact0(&protocol, &env, state.clone(), point);
     let screen = draw::image_from_list(PointCollection(&draw_data));
     (new_state, screen)
 }
 
-fn interact0(protocol: &ApTree, env: &Env) -> (ApTree /* newState */, ApTree /* draw data */) {
+fn interact0(protocol: &ApTree, env: &Env, mut state: ApTree, point: draw::Point) -> (ApTree /* newState */, ApTree /* draw data */) {
     use ApTree::T;
     use Word::WT;
 
-    let mut vector = ap(ap(T(Token::Vec), int(0)), int(0));
-    let mut state = nil();
+    let mut vector = ap(ap(T(Token::Vec), int(point.0.into())), int(point.1.into()));
     loop {
         let (flag, new_state, data) = {
             let applied_protocol = ap(ap(protocol.clone(), state), vector);
@@ -357,7 +357,7 @@ struct PointCollection<'a>(&'a ApTree);
 struct PointIterator<'a>(&'a ApTree);
 
 impl<'a> iter::Iterator for PointIterator<'a> {
-    type Item = (u32, u32);
+    type Item = draw::Point;
     fn next(&mut self) -> Option<Self::Item> {
         match get_arity(&self.0) {
             ApArity::ZeroAry(Token::Nil) => None,
@@ -373,7 +373,7 @@ impl<'a> iter::Iterator for PointIterator<'a> {
                     (ApTree::T(Token::Int(x)), ApTree::T(Token::Int(y))) => (*x, *y),
                     _ => panic!("Not (fully evaluated) ints"),
                 };
-                Some((x.try_into().unwrap(), y.try_into().unwrap()))
+                Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
             }
             _ => panic!("Not a list"),
         }
@@ -381,7 +381,7 @@ impl<'a> iter::Iterator for PointIterator<'a> {
 }
 
 impl<'a> iter::IntoIterator for &PointCollection<'a> {
-    type Item = (u32, u32);
+    type Item = draw::Point;
     type IntoIter = PointIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
         PointIterator(self.0)

@@ -98,9 +98,20 @@ fn main() {
             "statefuldraw" => lexer::oneliner("ap ap b ap b ap ap s ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c cons nil ap c cons"),
             _ => panic!("Unknown protocol '{}'", opt.protocol)
         };
-    let (_new_state, screen) = interpreter::interact(&program);
-    println!("{}", screen);
-    return
+    let (protocol, env) = interpreter::interpret_program(&program);
+    let mut point = draw::Point(0, 0);
+    let mut state = interpreter::initial_state();
+    loop {
+        let (new_state, screen) = interpreter::interact(&protocol, &env, &state, point);
+        println!("{}", screen);
+        match draw::point_from_terminal() {
+            None => return,
+            Some(new_point) => {
+                point = new_point;
+                state = new_state;
+            }
+        }
+    }
 }
 
 #[cfg(test)]
