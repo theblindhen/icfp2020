@@ -39,7 +39,7 @@ impl Env {
     fn fresh_var(&mut self) -> Var {
         let i = self.id + 1;
         self.id = i;
-        Var(-i)
+        Var(-i-100)
     }
 }
 
