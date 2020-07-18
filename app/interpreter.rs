@@ -96,6 +96,7 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         | Ap1(S, _)
         | Ap1(C, _)
         | Ap1(B, _)
+        | Ap1(If0, _)
         | Ap1(Cons, _)
         | Ap1(Add, _)
         | Ap1(Vec, _) => Id(wtree),
@@ -140,6 +141,13 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         Ap3(B, x, y, z) => {
             let x = reduce_left_loop(&x, &env);
             Step(explicit_ap(x, ap(y.clone(), z.clone())))
+        }
+        Ap3(If0, cond, left, right) => {
+            match reduce_left_loop(&cond, &env) {
+                WorkT(Int(0)) => Step(reduce_left_loop(&left, &env)),
+                WorkT(Int(1)) => Step(reduce_left_loop(&right, &env)),
+                 _ => panic!("If0 applied illegal conditional")
+            }
         }
         e => panic!("Unimplemented: {:#?}", e),
     }
@@ -561,6 +569,14 @@ mod test {
         );
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap ap ap b f :99 :99 1"), &env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap if0 0 1 :99"), &env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap if0 1 :99 1"), &env),
             wint(1)
         );
     }
