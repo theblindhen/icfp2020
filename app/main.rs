@@ -104,8 +104,9 @@ fn main() {
     let mut state = interpreter::initial_state();
     loop {
         let (new_state, screens) = interpreter::interact(prg_var, &mut env, &state, point);
-        for screen in screens {
-            println!("{}\n", screen);
+        for (i, screen) in screens.into_iter().enumerate() {
+            println!("Screen {}:\n{}\n", i, screen);
+            // screen.dump_image("imgs/screen_{}.png" i)
         }
         match draw::point_from_terminal() {
             None => return,
