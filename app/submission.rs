@@ -7,10 +7,10 @@ mod encodings;
 mod interpreter;
 mod lexer;
 
+use encodings::{vcons, vint, vnil};
+use interpreter::*;
 use log::*;
 use std::env;
-use interpreter::*;
-use encodings::{vcons, vint, vnil};
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = encodings::modulate(&body);
@@ -24,7 +24,10 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 
     let (decoded_response, remainder) = encodings::demodulate(&response);
     if (remainder != "") {
-        panic!("non-empty remainder when demodulating server response: {}", response);
+        panic!(
+            "non-empty remainder when demodulating server response: {}",
+            response
+        );
     }
 
     println!("Received POST response {:?}", response);
@@ -37,10 +40,15 @@ fn join_msg(player_key: i64) -> ValueTree {
 }
 
 fn start_msg(player_key: i64) -> ValueTree {
-    let initial_params =
-        vcons(vint(0), vcons(vint(0), vcons(vint(0), vcons(vint(0), vnil()))));
+    let initial_params = vcons(
+        vint(0),
+        vcons(vint(0), vcons(vint(0), vcons(vint(0), vnil()))),
+    );
 
-    vcons(vint(3), vcons(vint(player_key), vcons(initial_params, vnil())))
+    vcons(
+        vint(3),
+        vcons(vint(player_key), vcons(initial_params, vnil())),
+    )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,7 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
     let url = format!("{}/aliens/send", server_url);
-    
+
     let _ = post(&url, &join_msg(player_key))?;
     let _ = post(&url, &start_msg(player_key))?;
 
