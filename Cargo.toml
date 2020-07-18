@@ -3,10 +3,15 @@ name = "theblindhen2020"
 version = "0.1.0"
 authors = ["Johan Rosenkilde <jsrn@jsrn.dk>"]
 edition = "2018"
+default-run = "app"
 
 [[bin]]
 name = "app"
 path = "app/main.rs"
+
+[[bin]]
+name = "submission"
+path = "app/submission.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
