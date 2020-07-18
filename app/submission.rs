@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 mod aplang;
+mod value_tree;
 mod bits2d;
 mod draw;
 mod encodings;
@@ -10,6 +11,7 @@ mod nom_helpers;
 
 use encodings::{vcons, vint, vnil};
 use interpreter::*;
+use value_tree::*;
 use log::*;
 use std::env;
 use std::io::BufRead;
@@ -75,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("dummy")
         }
 
-        match interpreter::parse_value_tree(&buf) {
+        match value_tree::parse_value_tree(&buf) {
             Some(wtree) => {
                 post(&url, &wtree);
             },

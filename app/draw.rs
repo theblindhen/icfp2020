@@ -36,6 +36,7 @@ pub struct Screen {
     ystart: i64, // can be 0 or negative
 }
 
+// Two ints separated by a space
 pub fn parse_two_ints(s : &str) -> Option<Point> {
     let words: Vec<_> = s.split_whitespace().collect();
     match &words[..] {
