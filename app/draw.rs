@@ -10,20 +10,21 @@ type RGBA = (u8,u8,u8,u8);
 
 const COLORS : [RGBA; 13] =
     [
-      (  0,  0,  0,100),
-      (106,168, 82,100),
-      (224, 73, 87,100),
-      (125, 97,186,100),
-      (255,122, 66,100),
-      ( 40,120,181,100),
-      (245,223,113,100),
-      (194,180,234,100),
-      (249,207,221,100),
-      (177,223,243,100),
-      (198,227,171,100),
-      (244,234,150,100),
-      (255,199,174,100),
+      (  0,  0,  0,200),
+      (106,168, 82,200),
+      (224, 73, 87,200),
+      (125, 97,186,200),
+      (255,122, 66,200),
+      ( 40,120,181,200),
+      (245,223,113,200),
+      (194,180,234,200),
+      (249,207,221,200),
+      (177,223,243,200),
+      (198,227,171,200),
+      (244,234,150,200),
+      (255,199,174,200),
     ];
+const COLOR_COORD : RGBA = (255, 255, 255, 100);
 
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -148,10 +149,12 @@ pub struct Overlay{
 impl Overlay {
 
     pub fn new(screens : Vec<Screen>) -> Overlay {
-        let width  = (&screens).into_iter().map(|s| s.width()).max().unwrap();
-        let height = (&screens).into_iter().map(|s| s.height()).max().unwrap();
         let xstart = (&screens).into_iter().map(|s| s.xstart).min().unwrap();
         let ystart = (&screens).into_iter().map(|s| s.ystart).min().unwrap();
+        let xend   = (&screens).into_iter().map(|s| s.width() as i64 + s.xstart).max().unwrap();
+        let yend   = (&screens).into_iter().map(|s| s.height() as i64 + s.ystart).max().unwrap();
+        let width  = (xend - xstart) as u32;
+        let height = (yend - ystart) as u32;
         Overlay {screens, width, height, xstart, ystart}
     }
 
@@ -187,19 +190,63 @@ impl Overlay {
                 // TODO: Add coordinate systems
                 let ptr = 4*(ly*width + lx);
                 let mut coli = 0;
+                let mut color =
+                    if x == 0 || y == 0 {
+                        COLOR_COORD
+                    } else {
+                        RGBA::default()
+                    };
                 for i in 0..self.screens.len() {
                     if self.at(x, y, i) {
-                        coli = i+1;
-                        break
+                        color = blend_colors(color, COLORS[i+1]);
                     }
                 }
-                let (r,g,b,a) = COLORS[coli];
-                data[ptr] = r;
-                data[ptr+1] = g;
-                data[ptr+2] = b;
-                data[ptr+3] = a;
+                color = flatten_color(color);
+                data[ptr] = color.0;
+                data[ptr+1] = color.1;
+                data[ptr+2] = color.2;
+                data[ptr+3] = color.3;
             }
         }
         w.write_image_data(&data).unwrap();
     }   
+}
+
+fn fto8(f : f32) -> u8 {
+    let i = (f * 256.) as i64;
+    if i < 0 {
+        0
+    } else if i > 255 {
+        255
+    } else {
+        i as u8
+    }
+}
+
+fn fof8(c : u8) -> f32 {
+    (c as f32) / 256.
+}
+
+fn blend_colors(a : RGBA, b : RGBA) -> RGBA {
+       // var a = c1.a + c2.a*(1-c1.a);
+       // return {
+       //   r: (c1.r * c1.a  + c2.r * c2.a * (1 - c1.a)) / a,
+       //   g: (c1.g * c1.a  + c2.g * c2.a * (1 - c1.a)) / a,
+       //   b: (c1.b * c1.a  + c2.b * c2.a * (1 - c1.a)) / a,
+       //   a: a
+       // }
+    let rA = fof8(a.3)  + fof8(b.3)*(1.-fof8(a.3));
+    let rr = fto8( (fof8(a.0) * fof8(a.3) + fof8(b.0) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
+    let rg = fto8( (fof8(a.1) * fof8(a.3) + fof8(b.1) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
+    let rb = fto8( (fof8(a.2) * fof8(a.3) + fof8(b.2) * fof8(b.3) * (1. - fof8(a.3)) )/rA );
+    let r = (rr, rg, rb, fto8(rA));
+    r
+}
+
+fn flatten_color(a : RGBA) -> RGBA {
+    let alpha = fof8(a.3);
+    (fto8(fof8(a.0)/alpha),
+     fto8(fof8(a.1)/alpha),
+     fto8(fof8(a.2)/alpha),
+     255)
 }

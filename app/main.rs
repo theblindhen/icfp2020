@@ -110,7 +110,7 @@ fn main() {
         let overlay = draw::Overlay::new(screens);
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
-        overlay.dump_image(&format!("imgs/round_{}.png", round));
+        overlay.dump_image(&format!("imgs/round_{:03}.png", round));
         match draw::point_from_terminal() {
             None => return,
             Some(new_point) => {
