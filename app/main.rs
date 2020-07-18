@@ -103,8 +103,10 @@ fn main() {
     let mut point = draw::Point(0, 0);
     let mut state = interpreter::initial_state();
     loop {
-        let (new_state, screen) = interpreter::interact(prg_var, &mut env, &state, point);
-        println!("{}", screen);
+        let (new_state, screens) = interpreter::interact(prg_var, &mut env, &state, point);
+        for screen in screens {
+            println!("{}\n", screen);
+        }
         match draw::point_from_terminal() {
             None => return,
             Some(new_point) => {

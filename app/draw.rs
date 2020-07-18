@@ -31,19 +31,16 @@ pub fn point_from_terminal() -> Option<Point> {
     }
 }
 
-pub fn image_from_list<Collection>(points: Collection) -> Screen
-where
-    for<'a> &'a Collection: IntoIterator<Item = Point>,
-{
+pub fn image_from_list(points: Vec<Point>) -> Screen {
     let mut max_x: u32 = 0;
     let mut max_y: u32 = 0;
-    for Point(x, y) in &points {
+    for &Point(x, y) in &points {
         max_x = max_x.max(x);
         max_y = max_y.max(y);
     }
 
     let mut image = Bits2D::new(max_x + 1, max_y + 1);
-    for Point(x, y) in &points {
+    for &Point(x, y) in &points {
         image.set(x, y);
     }
     Screen(image)

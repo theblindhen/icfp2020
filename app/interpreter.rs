@@ -306,10 +306,28 @@ pub fn parse_program(program: &Program) -> (Var, Env) {
 
 pub fn initial_state() -> ValueTree { ValueTree::VNil }
 
-pub fn interact(prg_var: Var, env: &mut Env, state: &ValueTree, point: draw::Point) -> (ValueTree, draw::Screen) {
+pub fn interact(prg_var: Var, env: &mut Env, state: &ValueTree, point: draw::Point) -> (ValueTree, Vec<draw::Screen>) {
     let (new_state, draw_data) = interact0(prg_var, env, state.clone(), point);
-    let screen = draw::image_from_list(PointCollection(&draw_data));
-    (new_state, screen)
+    let mut screens = vec![];
+    for screen in &ConsList(&draw_data) {
+        let mut points = vec![];
+        for point in &ConsList(screen) {
+            let (x, y) = match point {
+                    ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
+                    _ => panic!("Not a point"),
+                };
+            let (x, y) = match (x, y) {
+                    (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
+                    _ => panic!("Not ints: ({:?}, {:?})", x, y),
+                };
+            let x = x.abs(); // TODO: support negative coordinates
+            let y = y.abs(); // TODO: support negative coordinates
+            points.push(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()));
+        }
+        let screen: draw::Screen = draw::image_from_list(points);
+        screens.push(screen)
+    }
+    (new_state, screens)
 }
 
 fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Point) -> (ValueTree /* newState */, ValueTree /* draw data */) {
@@ -357,45 +375,31 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
     }
 }
 
-struct PointCollection<'a>(&'a ValueTree);
+struct ConsList<'a>(&'a ValueTree);
 
-struct PointIterator<'a>(&'a ValueTree);
+struct ConsIterator<'a>(&'a ValueTree);
 
-impl<'a> iter::Iterator for PointIterator<'a> {
-    type Item = draw::Point;
+impl<'a> iter::Iterator for ConsIterator<'a> {
+    type Item = &'a ValueTree;
+
     fn next(&mut self) -> Option<Self::Item> {
         match self.0 {
             ValueTree::VNil => None,
             ValueTree::VCons(pair) => {
-                let (head, unexplained_nil) = pair.as_ref();
-                assert_eq!(unexplained_nil, &ValueTree::VNil); // TODO: why?
-                let (x, y) = match head {
-                    ValueTree::VCons(pair) => {
-                        let (xy, next_points) = pair.as_ref();
-                        self.0 = next_points;
-                        match xy {
-                            ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
-                            _ => panic!("Not a point"),
-                        }
-                    },
-                    _ => panic!("Not the dummy list I expected: {:?}", head)
-                };
-                let (x, y) = match (x, y) {
-                    (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
-                    _ => panic!("Not ints: ({:?}, {:?})", x, y),
-                };
-                Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
+                let (head, tail) = pair.as_ref();
+                self.0 = tail;
+                Some(head)
             }
-            _ => panic!("Not a list"),
+            _ => panic!("Not a list: {:?}", self.0),
         }
     }
 }
 
-impl<'a> iter::IntoIterator for &PointCollection<'a> {
-    type Item = draw::Point;
-    type IntoIter = PointIterator<'a>;
+impl<'a> iter::IntoIterator for &ConsList<'a> {
+    type Item = &'a ValueTree;
+    type IntoIter = ConsIterator<'a>;
     fn into_iter(self) -> Self::IntoIter {
-        PointIterator(self.0)
+        ConsIterator(self.0)
     }
 }
 
