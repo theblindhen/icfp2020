@@ -538,16 +538,20 @@ mod test {
     }
 
     #[test]
-    fn test_pretty_print() {
+    fn test_pretty_print_and_parse() {
         use crate::encodings::{vcons, vnil, vint};
-        assert_eq!(format!("{}", vnil()), "[]");
-        assert_eq!(format!("{}", vcons(vint(1), vnil())), "[1]");
-        assert_eq!(format!("{}", vcons(vint(1), vcons(vint(2), vnil()))), "[1, 2]");
-        assert_eq!(format!("{}", vcons(vint(1), vint(2))), "(1, 2)");
-        assert_eq!(format!("{}", vcons(vcons(vint(-12), vnil()), vnil())), "[[-12]]");
-        assert_eq!(format!("{}", vcons(vnil(), vcons(vint(-12), vnil()))), "[[], -12]");
-        assert_eq!(format!("{}", vcons(vcons(vint(1), vint(2)), vnil())), "[(1, 2)]");
-        assert_eq!(format!("{}", vcons(vcons(vint(1), vint(2)), vcons(vcons(vint(3), vint(4)), vnil()))), "[(1, 2), (3, 4)]");
+        fn check(tree: ValueTree, s: &str) {
+            assert_eq!(format!("{}", tree), s);
+            assert_eq!(parse_value_tree(s), Some(tree));
+        }
+        check(vnil(), "[]");
+        check(vcons(vint(1), vnil()), "[1]");
+        check(vcons(vint(1), vcons(vint(2), vnil())), "[1, 2]");
+        check(vcons(vint(1), vint(2)), "(1, 2)");
+        check(vcons(vcons(vint(-12), vnil()), vnil()), "[[-12]]");
+        check(vcons(vnil(), vcons(vint(-12), vnil())), "[[], -12]");
+        check(vcons(vcons(vint(1), vint(2)), vnil()), "[(1, 2)]");
+        check(vcons(vcons(vint(1), vint(2)), vcons(vcons(vint(3), vint(4)), vnil())), "[(1, 2), (3, 4)]");
     }
 
     #[test]
