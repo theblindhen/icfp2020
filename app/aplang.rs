@@ -48,7 +48,15 @@ pub enum Token {
 pub fn is_eager_fun1(fun: Token) -> bool {
     use Token::*;
     match fun {
-        Inc | Dec | Neg | Pwr2 | Add | Multiply | Div | Eq | Lt | If0 | Car | Cdr | IsNil | I => true,
+        Inc | Dec | Neg | Pwr2 | Car | Cdr | IsNil | I => true,
+        _ => false,
+    }
+}
+
+pub fn is_eager_fun2(fun: Token) -> bool {
+    use Token::*;
+    match fun {
+        Add | Multiply | Div | Eq | Lt => true,
         _ => false,
     }
 }

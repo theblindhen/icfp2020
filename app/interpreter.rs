@@ -70,6 +70,8 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
 
     match &wtree {
         WorkT(_) => Id(wtree),
+
+        // Unary functions
         Ap1(fun, arg) if is_eager_fun1(*fun) => {
             // Eagerly applied on first arg (when partially applied):
             // Inc, Dec, Neg, Pwr2, Add, Multiply, Div, Eq, Lt, If0,
@@ -79,13 +81,12 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
                 (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
                 (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
                 (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
-                (Add, WorkT(Int(n))) => Id(Ap1(Add, int(n))),
                 (I, body) => Step(body),
                 // TODO: Add more
                 _ => panic!("Eager arg should evaluate to token"),
             }
         }
-        // Lazy applied on first arg (when partially applied):
+        // Higher arity functions are untouched on Ap1
         // True, False,  S, C, B, Cons, Vec
         Ap1(True, _)
         | Ap1(False, _)
@@ -93,15 +94,22 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         | Ap1(C, _)
         | Ap1(B, _)
         | Ap1(Cons, _)
+        | Ap1(Add, _)
         | Ap1(Vec, _) => Id(wtree),
 
-        Ap2(Add, left, right) => {
+        // Binary functions
+        Ap2(fun, left, right) if is_eager_fun2(*fun) => {
             match (
+                fun,
                 reduce_left_loop(&left, &env),
                 reduce_left_loop(&right, &env),
             ) {
-                (WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x + y))),
-                _ => panic!("Add with non-int args"),
+                (Add, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x + y))),
+                (Multiply, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x * y))),
+                (Div, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x / y))),
+                (Eq, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(if x == y { True } else { False })),
+                (Lt, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(if x < y { True } else { False })),
+                _ => panic!("Binary integer ops with non-int args"),
             }
         }
         Ap2(True, left, right) => Step(reduce_left_loop(&left, &env)),
@@ -440,10 +448,10 @@ mod test {
         let mut env = Env::default();
         env.insert(Var(99), tree_of_str("ap :99 :99")); // diverges
         assert_eq!(reduce_left_loop(&tree_of_str("ap inc 0"), &env), wint(1));
-        assert_eq!(
-            reduce_left_loop(&tree_of_str("ap add ap inc 0"), &env),
-            wap1(Add, int(1))
-        );
+        // assert_eq!(
+        //     reduce_left_loop(&tree_of_str("ap add ap inc 0"), &env),
+        //     wap1(Add, int(1))
+        // );
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap add 0 1"), &env),
             wint(1)
@@ -451,6 +459,10 @@ mod test {
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap add 0 ap inc 0"), &env),
             wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap add ap inc 1 ap inc 0"), &env),
+            wint(3)
         );
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap add ap ap add 0 ap inc 0 2"), &env),
