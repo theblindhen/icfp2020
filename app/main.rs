@@ -9,10 +9,6 @@ mod draw;
 
 use crate::aplang::*;
 
-// Deserializing
-use serde::Deserialize;
-use serde_json::Value;
-
 use structopt::StructOpt;
 use std::path::PathBuf;
 use std::io::BufReader;
@@ -40,15 +36,6 @@ struct MyOpt {
 }
 
 
-// Example of a reduced, regular type-safe structure for holding a subset of the JSON
-// The Deserialize `derive` requires the `serde` dependency.
-#[derive(Deserialize, Debug)]
-struct Repo {
-    name: String,
-    id: i32,
-    description: String
-}
-
 // Demonstrates sending an HTTP request and decoding the response as JSON.
 fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
     println!("Sending request to {}...", url);
@@ -59,14 +46,6 @@ fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>
             .send_string(body)
             .into_string()?;
     Ok(reply)
-}
-
-fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    // Read the JSON contents of the file as an instance of `User`.
-    let json = serde_json::from_reader(reader)?;
-    Ok(json)
 }
 
 fn main() {
