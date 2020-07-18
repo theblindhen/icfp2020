@@ -301,7 +301,7 @@ pub fn interpret_program(program: &Program) -> (ApTree, Env) {
 pub fn interact(program: &Program) -> (ApTree, draw::Screen) {
     let (protocol, env) = interpret_program(program);
     let (new_state, draw_data) = interact0(&protocol, &env);
-    let screen = draw::image_from_list(coordinates_of_data(&draw_data));
+    let screen = draw::image_from_list(PointCollection(&draw_data));
     (new_state, screen)
 }
 
@@ -370,10 +370,6 @@ impl<'a> iter::IntoIterator for &PointCollection<'a> {
     fn into_iter(self) -> Self::IntoIter {
         PointIterator(self.0)
     }
-}
-
-fn coordinates_of_data(data: &ApTree) -> PointCollection {
-    PointCollection(data)
 }
 
 pub fn send(data: &ApTree) -> ApTree {

@@ -32,17 +32,8 @@ struct MyOpt {
     #[structopt(default_value = "1000", short, long)]
     timeout: u32,
 
-    /// Run interactively
     #[structopt(short, long)]
-    interactive: bool,
-
-    /// Server URL, provided by organizers
-    #[structopt(name = "SERVER_URL")]
-    server_url: String,
-
-    /// Player key, provided by organizers
-    #[structopt(name = "PLAYER_KEY")]
-    player_key: String,
+    protocol: String,
 }
 
 
@@ -75,7 +66,7 @@ fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
     Ok(json)
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     // Parse command line arguments according to the struct
     let opt = MyOpt::from_args();
 
@@ -100,18 +91,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
-    if opt.interactive {
-        info!("Lexing...");
-        let program = lexer::lex("galaxy.txt")?;
-        info!("Lexing done");
-        let (_new_state, screen) = interpreter::interact(&program);
-        println!("{}", screen);
-        return Ok(());
-    }
-
-    let response = http_json(&opt.server_url, &opt.player_key)?;
-    println!("{:?}", response);
-    Ok(())
+    let program =
+        match &opt.protocol[..] {
+            "galaxy" => lexer::lex("galaxy.txt"),
+            "statelessdraw" => lexer::oneliner("ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"),
+            "statefuldraw" => lexer::oneliner("ap ap b ap b ap ap s ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c cons nil ap c cons"),
+            _ => panic!("Unknown protocol '{}'", opt.protocol)
+        };
+    let (_new_state, screen) = interpreter::interact(&program);
+    println!("{}", screen);
+    return
 }
 
 #[cfg(test)]
