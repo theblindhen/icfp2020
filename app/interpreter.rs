@@ -98,7 +98,6 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         | Ap1(B, _)
         | Ap1(If0, _)
         | Ap1(Cons, _)
-        | Ap1(Add, _)
         | Ap1(Vec, _) => Id(wtree),
 
         // Binary functions
