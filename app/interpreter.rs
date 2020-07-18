@@ -3,6 +3,8 @@ use crate::aplang::ap;
 
 use std::collections::HashMap;
 use log::*;
+use std::iter;
+use std::convert::TryInto;
 
 type Env = HashMap<Var, ApTree>;
 
@@ -233,6 +235,43 @@ pub fn interact(program: &Program) -> (ApTree /* newState */, ApTree /* draw dat
         vector = send(&data);
     }
 }
+
+pub struct PointCollection<'a>(&'a ApTree);
+
+pub struct PointIterator<'a>(&'a ApTree);
+
+impl<'a> iter::Iterator for PointIterator<'a> {
+    type Item = (u32, u32);
+    fn next(&mut self) -> Option<Self::Item> {
+        match get_arity(&self.0) {
+            ApArity::ZeroAry(Token::Nil) => None,
+            ApArity::Binary(Token::Cons, head, tail) => {
+                let (x, y) =
+                    match get_arity(head) {
+                        ApArity::Binary(Token::Cons, x, y) |
+                            ApArity::Binary(Token::Vec, x, y) => (x, y),
+                        _ => panic!("Not a point")
+                    };
+                self.0 = tail;
+                let (x, y) =
+                    match (x, y) {
+                        (ApTree::T(Token::Int(x)), ApTree::T(Token::Int(y))) => (*x, *y),
+                        _ => panic!("Not (fully evaluated) ints"),
+                    };
+                Some((x.try_into().unwrap(), y.try_into().unwrap()))
+            }
+            _ => panic!("Not a list")
+        }
+    }
+}
+
+impl<'a> iter::IntoIterator for PointCollection<'a> {
+    type Item = (u32, u32);
+    type IntoIter = PointIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter { PointIterator(self.0) }
+}
+
+fn coordinates_of_data(data: &ApTree) -> PointCollection { PointCollection(data) }
 
 pub fn send(data: &ApTree) -> ApTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
