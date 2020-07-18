@@ -102,14 +102,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         info!("Lexing...");
         let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        let (tree, env) = interpreter::interpret_program(&program);
-        info!("Didn't panic!");
-        info!("Galaxy tree:\n{:#?}", &tree);
-        use aplang::Token::*;
-        let ap_gal = interpreter::reduce(&ap(ap(tree, ApTree::T(Nil)),
-                                             ap(ap(ApTree::T(Vec), int(0)), int(0))),
-                                         &env);
-        info!("Applied Galaxy tree:\n{:#?}", &ap_gal);
+        let (tree, env) = interpreter::interact(&program);
         return Ok(());
     }
 

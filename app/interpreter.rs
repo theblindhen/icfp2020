@@ -2,6 +2,7 @@ use crate::aplang::*;
 use crate::aplang::ap;
 
 use std::collections::HashMap;
+use log::*;
 
 type Env = HashMap<Var, ApTree>;
 
@@ -200,7 +201,56 @@ pub fn interpret_program(program : &Program) -> (ApTree, Env) {
     (reduce(env.get(&last_var).unwrap(), &env), env)
 }
 
+pub fn interact(program: &Program) -> (ApTree /* newState */, ApTree /* draw data */) {
+    use Word::WT;
+    use ApTree::T;
 
+    let (protocol, env) = interpret_program(program);
+    let mut vector = ap(ap(T(Token::Vec), int(0)), int(0));
+    let mut state = nil();
+    loop {
+        let (flag, new_state, data) = {
+            let applied_protocol = ap(ap(protocol.clone(), state), vector);
+            let tuple = reduce(&applied_protocol, &env);
+            match get_arity(&tuple) {
+                ApArity::Binary(Token::Cons, flag, tail) =>
+                    match get_arity(tail) {
+                        ApArity::Binary(Token::Cons, new_state, tail) =>
+                            match get_arity(tail) {
+                                ApArity::Binary(Token::Cons, data, tail) =>
+                                    (flag.clone(), new_state.clone(), data.clone()),
+                                _ => panic!("interact: no data")
+                            }
+                        _ => panic!("interact: no new_state")
+                    }
+                _ => panic!("interact: no flag")
+            }
+        };
+        if flag == T(Token::Int(0)) {
+            return (new_state, data)
+        }
+        state = new_state;
+        vector = send(&data);
+    }
+}
+
+pub fn send(data: &ApTree) -> ApTree {
+    let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
+    println!("Sending request to {}...", url);
+
+    let body = crate::encodings::modulate(data);
+    trace!("POSTing: {}", body);
+
+    let reply =
+        ureq::post(url)
+            .query("apiKey", "91bf0ff907084b7595841e534276a415")
+            .send_string(&body)
+            .into_string()
+            .expect("HTTP POST failed");
+
+    trace!("Got POST reply: {}", reply);
+    crate::encodings::demodulate(&reply).0
+}
 
 #[cfg(test)]
 mod test {
