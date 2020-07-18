@@ -72,20 +72,18 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         WorkT(_) => Id(wtree),
 
         // Unary functions
-        Ap1(fun, arg) if is_eager_fun1(*fun) => {
-            match (fun, reduce_left_loop(&arg, &env)) {
-                (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
-                (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
-                (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
-                (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
-                (I, body) => Step(body),
-                (Car, Ap2(Cons, car, _)) => Step(reduce_left_loop(&car, &env)),
-                (Cdr, Ap2(Cons, _, cdr)) => Step(reduce_left_loop(&cdr, &env)),
-                (IsNil, WorkT(Nil)) => Step(WorkT(True)),
-                (IsNil, Ap2(Cons, _,_)) => Step(WorkT(False)),
-                _ => panic!("Eager arg should evaluate to token"),
-            }
-        }
+        Ap1(fun, arg) if is_eager_fun1(*fun) => match (fun, reduce_left_loop(&arg, &env)) {
+            (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
+            (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
+            (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
+            (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
+            (I, body) => Step(body),
+            (Car, Ap2(Cons, car, _)) => Step(reduce_left_loop(&car, &env)),
+            (Cdr, Ap2(Cons, _, cdr)) => Step(reduce_left_loop(&cdr, &env)),
+            (IsNil, WorkT(Nil)) => Step(WorkT(True)),
+            (IsNil, Ap2(Cons, _, _)) => Step(WorkT(False)),
+            _ => panic!("Eager arg should evaluate to token"),
+        },
 
         // Higher arity functions are untouched on Ap1
         // True, False,  S, C, B, Cons, Vec
@@ -108,7 +106,9 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
                 (Add, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x + y))),
                 (Multiply, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x * y))),
                 (Div, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x / y))),
-                (Eq, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(if x == y { True } else { False })),
+                (Eq, WorkT(Int(x)), WorkT(Int(y))) => {
+                    Step(WorkT(if x == y { True } else { False }))
+                }
                 (Lt, WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(if x < y { True } else { False })),
                 _ => panic!("Binary integer ops with non-int args"),
             }
@@ -116,13 +116,10 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         Ap2(True, left, right) => Step(reduce_left_loop(&left, &env)),
         Ap2(False, left, right) => Step(reduce_left_loop(&right, &env)),
         // Lazy binary functions
-        Ap2(Cons,_,_)
-        | Ap2(Vec,_,_) => Id(wtree),
-
+        Ap2(Cons, _, _) | Ap2(Vec, _, _) => Id(wtree),
 
         // Higher arity functions are untouched on Ap2
-        | Ap2(S, _, _) => Id(wtree),
-
+        Ap2(S, _, _) => Id(wtree),
 
         Ap3(S, x, y, z) => {
             let xz = reduce_left_loop(&ap(x.clone(), z.clone()), &env);
@@ -250,6 +247,36 @@ pub fn reduce(tree: &ApTree, env: &Env) -> ApTree {
         },
     }
 }
+
+
+
+pub enum ValueTree {
+    VNil,
+    VInt(i64),
+    VCons(Box<(ValueTree, ValueTree)>),
+    VVec(Box<(ValueTree, ValueTree)>),
+}
+
+fn work_to_value_tree(tree: WorkTree, env: &Env) -> ValueTree {
+    use ValueTree::*;
+    use Token::*;
+    use WorkTree::*;
+    match tree {
+        WorkT(Int(val)) => VInt(val),
+        WorkT(Nil) => VNil,
+        Ap2(Cons, left, right) => VCons(Box::new((
+            work_to_value_tree(reduce_left_loop(&left, &env), &env),
+            work_to_value_tree(reduce_left_loop(&right, &env), &env),
+        ))),
+        Ap2(Vec, left, right) => VVec(Box::new((
+            work_to_value_tree(reduce_left_loop(&left, &env), &env),
+            work_to_value_tree(reduce_left_loop(&right, &env), &env),
+        ))),
+        _ => panic!("Non-value work tree")
+    }
+}
+
+
 
 #[derive(Debug)]
 pub enum ApPartial {
