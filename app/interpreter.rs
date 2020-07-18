@@ -403,7 +403,6 @@ pub fn send(data: &ValueTree) -> ValueTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
     println!("Sending request to {}...", url);
 
-    // TODO: define modulate for ValueTree instead of ApTree
     let body = crate::encodings::modulate(data);
     trace!("POSTing: {}", body);
 
@@ -414,9 +413,8 @@ pub fn send(data: &ValueTree) -> ValueTree {
         .expect("HTTP POST failed");
 
     trace!("Got POST reply: {}", reply);
-    let mut env = Env::default();
-    // TODO: define demodulate to ValueTree instead of ApTree
-    work_to_value_tree(reduce_left_loop(&crate::encodings::demodulate(&reply).0, &mut env), &mut env)
+
+    crate::encodings::demodulate(&reply).0
 }
 
 #[cfg(test)]
