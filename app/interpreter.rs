@@ -73,16 +73,16 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
 
         // Unary functions
         Ap1(fun, arg) if is_eager_fun1(*fun) => {
-            // Eagerly applied on first arg (when partially applied):
-            // Inc, Dec, Neg, Pwr2, Add, Multiply, Div, Eq, Lt, If0,
-            // Car, Cdr, IsNil
             match (fun, reduce_left_loop(&arg, &env)) {
                 (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
                 (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
                 (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
                 (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
                 (I, body) => Step(body),
-                (Car, Ap2(Cons, car, cdr)) => Step(reduce_left_loop(&car, &env)),
+                (Car, Ap2(Cons, car, _)) => Step(reduce_left_loop(&car, &env)),
+                (Cdr, Ap2(Cons, _, cdr)) => Step(reduce_left_loop(&cdr, &env)),
+                (IsNil, WorkT(Nil)) => Step(WorkT(True)),
+                (IsNil, Ap2(Cons, _,_)) => Step(WorkT(False)),
                 _ => panic!("Eager arg should evaluate to token"),
             }
         }
@@ -425,7 +425,7 @@ mod test {
     }
 
     pub fn wap1(fun: Token, arg: ApTree) -> WorkTree {
-        return WorkTree::Ap1(fun, arg);
+        WorkTree::Ap1(fun, arg)
     }
 
     // pub fn wnil() -> ApTree {
@@ -436,8 +436,12 @@ mod test {
     //     return ap(ap(ApTree::T(Token::Cons), head), tail);
     // }
 
+    pub fn wbool(v: bool) -> WorkTree {
+        WorkT(if v { True } else { False })
+    }
+
     pub fn wint(val: i64) -> WorkTree {
-        return WorkT(Int(val));
+        WorkT(Int(val))
     }
 
     // #[test]
@@ -499,6 +503,14 @@ mod test {
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap car ap ap cons 0 :99"), &env),
             wint(0)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap isnil nil"), &env),
+            wbool(true)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap isnil ap ap cons :99 :99"), &env),
+            wbool(false)
         );
     }
 }
