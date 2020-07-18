@@ -52,7 +52,7 @@ pub fn screen_from_list(points: Vec<Point>) -> Screen {
 
     let mut pixels = Bits2D::new(
         (max_x - min_x + 1).try_into().unwrap(),
-        (max_y - min_x + 1).try_into().unwrap()
+        (max_y - min_y + 1).try_into().unwrap()
     );
     for &Point(x, y) in &points {
         pixels.set((x - min_x).try_into().unwrap(), (y - min_y).try_into().unwrap());
