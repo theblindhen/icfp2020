@@ -4,6 +4,8 @@ mod aplang;
 mod encodings;
 mod lexer;
 mod interpreter;
+mod bits2d;
+mod draw;
 
 use crate::aplang::*;
 
@@ -30,9 +32,9 @@ struct MyOpt {
     #[structopt(default_value = "1000", short, long)]
     timeout: u32,
 
-    /// Lex galaxy.txt, then quit
+    /// Run interactively
     #[structopt(short, long)]
-    lex_only: bool,
+    interactive: bool,
 
     /// Server URL, provided by organizers
     #[structopt(name = "SERVER_URL")]
@@ -98,18 +100,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
-    if opt.lex_only {
+    if opt.interactive {
         info!("Lexing...");
         let program = lexer::lex("galaxy.txt")?;
         info!("Lexing done");
-        let (tree, env) = interpreter::interpret_program(&program);
-        info!("Didn't panic!");
-        info!("Galaxy tree:\n{:#?}", &tree);
-        use aplang::Token::*;
-        let ap_gal = interpreter::reduce(&ap(ap(tree, ApTree::T(Nil)),
-                                             ap(ap(ApTree::T(Vec), int(0)), int(0))),
-                                         &env);
-        info!("Applied Galaxy tree:\n{:#?}", &ap_gal);
+        let (_new_state, screen) = interpreter::interact(&program);
+        println!("{}", screen);
         return Ok(());
     }
 

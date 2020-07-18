@@ -51,7 +51,7 @@ fn demodulate_int(s: &str) -> (i64, &str) {
     }
 }
 
-fn demodulate(s: &str) -> (ApTree, &str) {
+pub fn demodulate(s: &str) -> (ApTree, &str) {
     match &s[0..2] {
         // nil
         "00" => (nil(), &s[2..]),
@@ -73,7 +73,7 @@ fn demodulate(s: &str) -> (ApTree, &str) {
     }
 }
 
-fn modulate(tree: &ApTree) -> String {
+pub fn modulate(tree: &ApTree) -> String {
     match tree {
         ApTree::T(Token::Int(val)) => return modulate_int(*val),
         ApTree::T(Token::Nil) => return String::from("00"),

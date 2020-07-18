@@ -1,7 +1,11 @@
 use crate::aplang::*;
 use crate::lexer::*;
+use crate::draw;
 
 use std::collections::HashMap;
+use log::*;
+use std::iter;
+use std::convert::TryInto;
 
 type Env = HashMap<Var, ApTree>;
 
@@ -297,7 +301,99 @@ pub fn interpret_program(program : &Program) -> (ApTree, Env) {
     (reduce(env.get(&last_var).unwrap(), &env), env)
 }
 
+pub fn interact(program : &Program) -> (ApTree, draw::Screen) {
+    let (protocol, env) = interpret_program(program);
+    let (new_state, draw_data) = interact0(&protocol, &env);
+    let screen = draw::image_from_list(coordinates_of_data(&draw_data));
+    (new_state, screen)
+}
 
+fn interact0(protocol: &ApTree, env: &Env) -> (ApTree /* newState */, ApTree /* draw data */) {
+    use Word::WT;
+    use ApTree::T;
+
+    let mut vector = ap(ap(T(Token::Vec), int(0)), int(0));
+    let mut state = nil();
+    loop {
+        let (flag, new_state, data) = {
+            let applied_protocol = ap(ap(protocol.clone(), state), vector);
+            let tuple = reduce(&applied_protocol, env);
+            match get_arity(&tuple) {
+                ApArity::Binary(Token::Cons, flag, tail) =>
+                    match get_arity(tail) {
+                        ApArity::Binary(Token::Cons, new_state, tail) =>
+                            match get_arity(tail) {
+                                ApArity::Binary(Token::Cons, data, tail) =>
+                                    (flag.clone(), new_state.clone(), data.clone()),
+                                _ => panic!("interact: no data")
+                            }
+                        _ => panic!("interact: no new_state")
+                    }
+                _ => panic!("interact: no flag")
+            }
+        };
+        if flag == T(Token::Int(0)) {
+            return (new_state, data)
+        }
+        state = new_state;
+        vector = send(&data);
+    }
+}
+
+pub struct PointCollection<'a>(&'a ApTree);
+
+pub struct PointIterator<'a>(&'a ApTree);
+
+impl<'a> iter::Iterator for PointIterator<'a> {
+    type Item = (u32, u32);
+    fn next(&mut self) -> Option<Self::Item> {
+        match get_arity(&self.0) {
+            ApArity::ZeroAry(Token::Nil) => None,
+            ApArity::Binary(Token::Cons, head, tail) => {
+                let (x, y) =
+                    match get_arity(head) {
+                        ApArity::Binary(Token::Cons, x, y) |
+                            ApArity::Binary(Token::Vec, x, y) => (x, y),
+                        _ => panic!("Not a point")
+                    };
+                self.0 = tail;
+                let (x, y) =
+                    match (x, y) {
+                        (ApTree::T(Token::Int(x)), ApTree::T(Token::Int(y))) => (*x, *y),
+                        _ => panic!("Not (fully evaluated) ints"),
+                    };
+                Some((x.try_into().unwrap(), y.try_into().unwrap()))
+            }
+            _ => panic!("Not a list")
+        }
+    }
+}
+
+impl<'a> iter::IntoIterator for &PointCollection<'a> {
+    type Item = (u32, u32);
+    type IntoIter = PointIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter { PointIterator(self.0) }
+}
+
+fn coordinates_of_data(data: &ApTree) -> PointCollection { PointCollection(data) }
+
+pub fn send(data: &ApTree) -> ApTree {
+    let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
+    println!("Sending request to {}...", url);
+
+    let body = crate::encodings::modulate(data);
+    trace!("POSTing: {}", body);
+
+    let reply =
+        ureq::post(url)
+            .query("apiKey", "91bf0ff907084b7595841e534276a415")
+            .send_string(&body)
+            .into_string()
+            .expect("HTTP POST failed");
+
+    trace!("Got POST reply: {}", reply);
+    crate::encodings::demodulate(&reply).0
+}
 
 #[cfg(test)]
 mod test {
