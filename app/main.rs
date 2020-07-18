@@ -96,7 +96,7 @@ fn main() {
     loop {
         round += 1;
         println!("ROUND {}", round);
-        let (new_state, screens) = interpreter::interact(prg_var, &mut env, &state, point);
+        let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
         let overlay = draw::Overlay::new(screens);
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
