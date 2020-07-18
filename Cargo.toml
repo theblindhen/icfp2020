@@ -8,6 +8,10 @@ edition = "2018"
 name = "app"
 path = "app/main.rs"
 
+[[bin]]
+name = "submission"
+path = "app/submission.rs"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
