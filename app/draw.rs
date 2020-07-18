@@ -2,11 +2,12 @@ use crate::bits2d::Bits2D;
 use std::iter::{IntoIterator, Iterator};
 use std::fmt;
 use std::io::BufRead;
+use std::convert::TryInto;
 
 use png;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
-pub struct Point(pub u32, pub u32);
+pub struct Point(pub i64, pub i64);
 
 pub struct Screen(Bits2D);
 
@@ -34,16 +35,16 @@ pub fn point_from_terminal() -> Option<Point> {
 }
 
 pub fn image_from_list(points: Vec<Point>) -> Screen {
-    let mut max_x: u32 = 0;
-    let mut max_y: u32 = 0;
+    let mut max_x: i64 = 0;
+    let mut max_y: i64 = 0;
     for &Point(x, y) in &points {
         max_x = max_x.max(x);
         max_y = max_y.max(y);
     }
 
-    let mut image = Bits2D::new(max_x + 1, max_y + 1);
+    let mut image = Bits2D::new((max_x + 1).try_into().unwrap(), (max_y + 1).try_into().unwrap());
     for &Point(x, y) in &points {
-        image.set(x, y);
+        image.set(x.try_into().unwrap(), y.try_into().unwrap());
     }
     Screen(image)
 }
