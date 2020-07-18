@@ -33,7 +33,10 @@ struct MyOpt {
     timeout: u32,
 
     #[structopt(short, long)]
-    protocol: String,
+    protocol: Option<String>,
+
+    #[structopt(long)]
+    make_join_message_with_key: Option<i64>,
 }
 
 
@@ -109,12 +112,20 @@ fn main() {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
+    if let Some(key) = opt.make_join_message_with_key {
+        use encodings::{vcons, vnil, vint};
+        let join = vcons(vint(2), vcons(vint(key), vcons(vnil(), vnil())));
+        let modulated = encodings::modulate(&join);
+        println!("{}", modulated);
+        return;
+    }
+
     let program =
-        match &opt.protocol[..] {
+        match &opt.protocol.expect("Specify a protocol")[..] {
             "galaxy" => lexer::lex("galaxy.txt"),
             "statelessdraw" => lexer::oneliner("ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"),
             "statefuldraw" => lexer::oneliner("ap ap b ap b ap ap s ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c cons nil ap c cons"),
-            _ => panic!("Unknown protocol '{}'", opt.protocol)
+            other => panic!("Unknown protocol '{}'", other)
         };
     let (prg_var, env) = interpreter::parse_program(&program);
     let mut env = env;
