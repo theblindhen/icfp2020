@@ -4,6 +4,8 @@ mod aplang;
 mod encodings;
 mod lexer;
 mod interpreter;
+mod bits2d;
+mod draw;
 
 use crate::aplang::*;
 
