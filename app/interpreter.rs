@@ -312,11 +312,9 @@ pub fn interact(prg_var: Var, env: &mut Env, state: &ValueTree, point: draw::Poi
                     (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
                     _ => panic!("Not ints: ({:?}, {:?})", x, y),
                 };
-            let x = x.abs(); // TODO: support negative coordinates
-            let y = y.abs(); // TODO: support negative coordinates
             points.push(draw::Point(x, y));
         }
-        let screen: draw::Screen = draw::image_from_list(points);
+        let screen: draw::Screen = draw::screen_from_list(points);
         screens.push(screen)
     }
     (new_state, screens)

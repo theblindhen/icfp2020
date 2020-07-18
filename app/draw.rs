@@ -9,7 +9,11 @@ use png;
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct Point(pub i64, pub i64);
 
-pub struct Screen(Bits2D);
+pub struct Screen {
+    pixels: Bits2D,
+    xstart: i64, // can be 0 or negative
+    ystart: i64, // can be 0 or negative
+}
 
 pub fn point_from_terminal() -> Option<Point> {
     println!("Type coordinates, separated by a space");
@@ -34,34 +38,41 @@ pub fn point_from_terminal() -> Option<Point> {
     }
 }
 
-pub fn image_from_list(points: Vec<Point>) -> Screen {
+pub fn screen_from_list(points: Vec<Point>) -> Screen {
+    let mut min_x: i64 = 0;
+    let mut min_y: i64 = 0;
     let mut max_x: i64 = 0;
     let mut max_y: i64 = 0;
     for &Point(x, y) in &points {
         max_x = max_x.max(x);
         max_y = max_y.max(y);
+        min_x = min_x.min(x);
+        min_y = min_y.min(y);
     }
 
-    let mut image = Bits2D::new((max_x + 1).try_into().unwrap(), (max_y + 1).try_into().unwrap());
+    let mut pixels = Bits2D::new(
+        (max_x - min_x + 1).try_into().unwrap(),
+        (max_y - min_x + 1).try_into().unwrap()
+    );
     for &Point(x, y) in &points {
-        image.set(x.try_into().unwrap(), y.try_into().unwrap());
+        pixels.set((x - min_x).try_into().unwrap(), (y - min_y).try_into().unwrap());
     }
-    Screen(image)
+    Screen { pixels, xstart: min_x, ystart: min_y }
 }
 
 
 impl Screen {
 
     fn width(&self) -> u32 {
-        self.0.length1()
+        self.pixels.length1()
     }
 
     fn height(&self) -> u32 {
-        self.0.length2()
+        self.pixels.length2()
     }
 
     fn at(&self, x : u32, y : u32) -> bool {
-        self.0[(x,y)]
+        self.pixels[(x,y)]
     }
 
     fn as_linear_vector(&self) -> Vec<u8> {
@@ -90,23 +101,25 @@ impl Screen {
 
 impl fmt::Display for Screen {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let x_frame = |x: u32| if x as i64 == -self.xstart { '|' } else { '-' };
         write!(f, " ")?;
         for x in 0..self.width() {
-            write!(f, "-")?
+            write!(f, "{}", x_frame(x))?
         }
         writeln!(f, " ")?;
 
         for y in 0..self.height() {
-            write!(f, "|")?;
+            let y_frame = if y as i64 == -self.ystart { '-' } else { '|' };
+            write!(f, "{}", y_frame)?;
             for x in 0..self.width() {
                 write!(f, "{}", if self.at(x, y) { '*' } else { ' ' })?
             }
-            writeln!(f, "|")?
+            writeln!(f, "{}", y_frame)?;
         }
 
         write!(f, " ")?;
         for x in 0..self.width() {
-            write!(f, "-")?
+            write!(f, "{}", x_frame(x))?
         }
         writeln!(f, " ")?;
 
