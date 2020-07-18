@@ -27,18 +27,22 @@ impl Env {
 
     fn get_and_reduce(&mut self, v: Var) -> WorkTree {
         use VarTree::*;
-        match self.m.get(&v) {
-            Some(Open(aptree)) => {
-                if let Some(Open(aptree)) = self.m.remove(&v) {
-                    let wtree = reduce_left_loop(aptree, self);
-                    self.m.insert(v, Reduced(wtree.clone()));
-                    wtree
-                } else {
-                    panic!()
+        match self.m.entry(v) {
+            std::collections::hash_map::Entry::Occupied(mut occ) =>
+                match occ.get() {
+                    Open(aptree) => {
+                        if let Open(aptree) = occ.remove() {
+                            let wtree = reduce_left_loop(aptree, self);
+                            self.m.insert(v, Reduced(wtree.clone()));
+                            wtree
+                        } else {
+                            panic!()
+                        }
+                    },
+                    Reduced(wtree) => wtree.clone(),
                 }
-            },
-            Some(Reduced(wtree)) => wtree.clone(),
-            None => panic!("Unknown variable")
+            std::collections::hash_map::Entry::Vacant(_) =>
+                panic!("Unknown variable")
         }
     }
 
