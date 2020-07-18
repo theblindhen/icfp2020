@@ -432,7 +432,7 @@ impl<'a> iter::IntoIterator for &ConsList<'a> {
 
 pub fn send(data: &ValueTree) -> ValueTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
-    println!("Sending request to {}...", url);
+    println!("Sending POST request with body:\n{}", data);
 
     let body = crate::encodings::modulate(data);
     trace!("POSTing: {}", body);
@@ -445,7 +445,9 @@ pub fn send(data: &ValueTree) -> ValueTree {
 
     trace!("Got POST reply: {}", reply);
 
-    crate::encodings::demodulate(&reply).0
+    let decoded_reply = crate::encodings::demodulate(&reply).0;
+    println!("Received POST response:\n{}", decoded_reply);
+    decoded_reply
 }
 
 #[cfg(test)]

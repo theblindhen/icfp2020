@@ -119,7 +119,7 @@ fn main() {
         println!("ROUND {}", round);
         let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
         let overlay = draw::Overlay::new(screens);
-        println!("State\n{}\nOverlays: x={}, y={}", encodings::modulate(&state), overlay.xstart, overlay.ystart);
+        println!("State\n{}\n{}\nOverlays: x={}, y={}", state, encodings::modulate(&state), overlay.xstart, overlay.ystart);
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
         overlay.dump_image(&format!("imgs/round_{:03}.png", round));
