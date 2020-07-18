@@ -22,9 +22,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
 
-    let reply = post(server_url, player_key)?;
+    let body = format!("(2, {}, nil)", player_key);
+    let reply = post(server_url, &body)?;
 
     println!("Reply: {}", reply);
     Ok(())
 }
-
