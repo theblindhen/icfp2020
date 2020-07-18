@@ -404,7 +404,7 @@ pub fn send(data: &ValueTree) -> ValueTree {
     println!("Sending request to {}...", url);
 
     // TODO: define modulate for ValueTree instead of ApTree
-    let body = crate::encodings::modulate(&data.into());
+    let body = crate::encodings::modulate(data);
     trace!("POSTing: {}", body);
 
     let reply = ureq::post(url)
