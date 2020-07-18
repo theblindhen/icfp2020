@@ -82,10 +82,11 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
                 (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
                 (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
                 (I, body) => Step(body),
-                // TODO: Add more
+                (Car, Ap2(Cons, car, cdr)) => Step(reduce_left_loop(&car, &env)),
                 _ => panic!("Eager arg should evaluate to token"),
             }
         }
+
         // Higher arity functions are untouched on Ap1
         // True, False,  S, C, B, Cons, Vec
         Ap1(True, _)
@@ -114,8 +115,15 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         }
         Ap2(True, left, right) => Step(reduce_left_loop(&left, &env)),
         Ap2(False, left, right) => Step(reduce_left_loop(&right, &env)),
+        // Lazy binary functions
+        Ap2(Cons,_,_)
+        | Ap2(Vec,_,_) => Id(wtree),
 
-        Ap2(S, _, _) => Id(wtree),
+
+        // Higher arity functions are untouched on Ap2
+        | Ap2(S, _, _) => Id(wtree),
+
+
         Ap3(S, x, y, z) => {
             let xz = reduce_left_loop(&ap(x.clone(), z.clone()), &env);
             Step(explicit_ap(xz, ap(y.clone(), z.clone())))
@@ -483,6 +491,14 @@ mod test {
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap ap s t :99 1"), &env),
             wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap car ap ap cons 0 nil"), &env),
+            wint(0)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap car ap ap cons 0 :99"), &env),
+            wint(0)
         );
     }
 }
