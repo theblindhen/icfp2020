@@ -7,24 +7,48 @@ mod encodings;
 mod interpreter;
 mod lexer;
 
+use encodings::{vcons, vint, vnil};
+use interpreter::*;
 use log::*;
 use std::env;
 
-fn post(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
-    println!("Sending POST request with body {} to {}", body, url);
+fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
+    let encoded_body = encodings::modulate(&body);
 
-    let reply = ureq::post(url)
+    println!("Sending POST request with body {:?} to {}", body, url);
+
+    let response = ureq::post(url)
         .timeout(std::time::Duration::from_secs(30))
-        .send_string(body)
+        .send_string(&encoded_body)
         .into_string()?;
-    Ok(reply)
+
+    let (decoded_response, remainder) = encodings::demodulate(&response);
+    if (remainder != "") {
+        panic!(
+            "non-empty remainder when demodulating server response: {}",
+            response
+        );
+    }
+
+    println!("Received POST response {:?}", decoded_response);
+
+    Ok(decoded_response)
 }
 
-fn join_msg(player_key: i64) -> String {
-    use encodings::{vcons, vint, vnil};
+fn join_msg(player_key: i64) -> ValueTree {
+    vcons(vint(2), vcons(vint(player_key), vcons(vnil(), vnil())))
+}
 
-    let join = vcons(vint(2), vcons(vint(player_key), vcons(vnil(), vnil())));
-    encodings::modulate(&join)
+fn start_msg(player_key: i64) -> ValueTree {
+    let initial_params = vcons(
+        vint(0),
+        vcons(vint(0), vcons(vint(0), vcons(vint(0), vnil()))),
+    );
+
+    vcons(
+        vint(3),
+        vcons(vint(player_key), vcons(initial_params, vnil())),
+    )
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -34,10 +58,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let player_key: i64 = args[2].parse().unwrap();
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
-
     let url = format!("{}/aliens/send", server_url);
-    let reply = post(&url, &join_msg(player_key))?;
 
-    println!("Reply: {}", reply);
+    let _ = post(&url, &join_msg(player_key))?;
+    let _ = post(&url, &start_msg(player_key))?;
+
     Ok(())
 }
