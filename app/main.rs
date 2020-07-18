@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 mod aplang;
+mod value_tree;
 mod encodings;
 mod lexer;
 mod interpreter;
