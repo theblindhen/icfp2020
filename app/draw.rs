@@ -6,6 +6,26 @@ use std::convert::TryInto;
 
 use png;
 
+type RGBA = (u8,u8,u8,u8);
+
+const COLORS : [RGBA; 13] =
+    [
+      (  0,  0,  0,100),
+      (106,168, 82,100),
+      (224, 73, 87,100),
+      (125, 97,186,100),
+      (255,122, 66,100),
+      ( 40,120,181,100),
+      (245,223,113,100),
+      (194,180,234,100),
+      (249,207,221,100),
+      (177,223,243,100),
+      (198,227,171,100),
+      (244,234,150,100),
+      (255,199,174,100),
+    ];
+
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct Point(pub i64, pub i64);
 
@@ -71,8 +91,18 @@ impl Screen {
         self.pixels.length2()
     }
 
-    fn at(&self, x : u32, y : u32) -> bool {
+    fn at_abs(&self, x : u32, y : u32) -> bool {
         self.pixels[(x,y)]
+    }
+
+    fn at_global(&self, x : i64, y : i64) -> bool {
+        let lx = x - self.xstart;
+        let ly = y - self.ystart;
+        if lx < 0 || lx >= self.width() as i64 || ly < 0 || ly >= self.height() as i64 {
+            false
+        } else {
+            self.pixels[(lx as u32,ly as u32)]
+        }
     }
 
     pub fn dump_image(&self, file_name: &str, rgba: (u8,u8,u8,u8)) {
@@ -90,7 +120,7 @@ impl Screen {
         for x in 0..width {
             for y in 0..height {
                 let ptr = 4*(y*width + x);
-                if self.at(x as u32, y as u32) {
+                if self.at_abs(x as u32, y as u32) {
                     data[ptr] = r;
                     data[ptr+1] = g;
                     data[ptr+2] = b;
@@ -104,34 +134,72 @@ impl Screen {
             }
         }
         w.write_image_data(&data).unwrap();
-    }
+    }   
 }
 
+pub struct Overlay{
+    screens: Vec<Screen>,  // vec of rows
+    width: u32,
+    height: u32,
+    xstart: i64, // can be 0 or negative
+    ystart: i64, // can be 0 or negative
+}
 
-impl fmt::Display for Screen {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let x_frame = |x: u32| if x as i64 == -self.xstart { '|' } else { '-' };
-        write!(f, " ")?;
-        for x in 0..self.width() {
-            write!(f, "{}", x_frame(x))?
-        }
-        writeln!(f, " ")?;
+impl Overlay {
 
-        for y in 0..self.height() {
-            let y_frame = if y as i64 == -self.ystart { '-' } else { '|' };
-            write!(f, "{}", y_frame)?;
-            for x in 0..self.width() {
-                write!(f, "{}", if self.at(x, y) { '*' } else { ' ' })?
-            }
-            writeln!(f, "{}", y_frame)?;
-        }
-
-        write!(f, " ")?;
-        for x in 0..self.width() {
-            write!(f, "{}", x_frame(x))?
-        }
-        writeln!(f, " ")?;
-
-        Ok(())
+    pub fn new(screens : Vec<Screen>) -> Overlay {
+        let width  = (&screens).into_iter().map(|s| s.width()).max().unwrap();
+        let height = (&screens).into_iter().map(|s| s.height()).max().unwrap();
+        let xstart = (&screens).into_iter().map(|s| s.xstart).min().unwrap();
+        let ystart = (&screens).into_iter().map(|s| s.ystart).min().unwrap();
+        Overlay {screens, width, height, xstart, ystart}
     }
+
+    fn width(&self) -> u32 {
+        self.width
+    }
+
+    fn height(&self) -> u32 {
+        self.height
+    }
+
+    fn at(&self, x : i64, y : i64, i : usize) -> bool {
+        // Returns whether the i'th screen is true on (x,y)
+        self.screens[i].at_global(x, y)
+    }
+
+    pub fn dump_image(&self, file_name: &str) {
+        let w = std::fs::File::create(file_name).unwrap();
+        let w = std::io::BufWriter::new(w);
+        let mut encoder = png::Encoder::new(w, self.width(), self.height());
+        encoder.set_color(png::ColorType::RGBA);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut w = encoder.write_header().unwrap();
+
+        let width = self.width() as usize;
+        let height = self.height() as usize;
+        let mut data = vec![0u8; 4*width * height];
+        for ly in 0..height {
+            let y = ly as i64 + self.ystart;
+            for lx in 0..width {
+                let x = lx as i64 + self.xstart;
+                // TODO: Blend screens
+                // TODO: Add coordinate systems
+                let ptr = 4*(ly*width + lx);
+                let mut coli = 0;
+                for i in 0..self.screens.len() {
+                    if self.at(x, y, i) {
+                        coli = i+1;
+                        break
+                    }
+                }
+                let (r,g,b,a) = COLORS[coli];
+                data[ptr] = r;
+                data[ptr+1] = g;
+                data[ptr+2] = b;
+                data[ptr+3] = a;
+            }
+        }
+        w.write_image_data(&data).unwrap();
+    }   
 }

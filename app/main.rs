@@ -66,24 +66,6 @@ fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
     Ok(json)
 }
 
-type RGBA = (u8,u8,u8,u8);
-
-const COLORS : [RGBA; 12] =
-    [
-      (106,168, 82,255),
-      (224, 73, 87,255),
-      (125, 97,186,255),
-      (255,122, 66,255),
-      ( 40,120,181,255),
-      (245,223,113,255),
-      (194,180,234,255),
-      (249,207,221,255),
-      (177,223,243,255),
-      (198,227,171,255),
-      (244,234,150,255),
-      (255,199,174,255),
-    ];
-
 fn main() {
     // Parse command line arguments according to the struct
     let opt = MyOpt::from_args();
@@ -125,10 +107,10 @@ fn main() {
         round += 1;
         println!("ROUND {}", round);
         let (new_state, screens) = interpreter::interact(prg_var, &mut env, &state, point);
-        for (i, screen) in screens.into_iter().enumerate() {
-            println!("Screen {}_{}:\n{}\n", round, i, screen);
-            screen.dump_image(&format!("imgs/screen_{}_{}.png", round, i), COLORS[i])
-        }
+        let overlay = draw::Overlay::new(screens);
+        // println!("Overlays:\n{}", round, overlay);
+        // overlay.dump_image()
+        overlay.dump_image(&format!("imgs/round_{}.png", round));
         match draw::point_from_terminal() {
             None => return,
             Some(new_point) => {
