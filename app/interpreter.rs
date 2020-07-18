@@ -8,12 +8,13 @@ use std::convert::TryInto;
 use std::iter;
 use std::fmt;
 
+#[derive(Clone)]
 enum VarTree {
     Open(ApTree),
     Reduced(WorkTree),
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Env {
     m: HashMap<Var, VarTree>,
     id: i32,
