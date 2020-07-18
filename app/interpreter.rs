@@ -394,7 +394,7 @@ fn interact0(protocol: &ApTree, env: &Env, mut state: ValueTree, point: draw::Po
 
     let mut vector = VVec(Box::new((VInt(point.0.into()), VInt(point.1.into()))));
     loop {
-        let (flag, new_state, data): (_, _, ValueTree) = {
+        let (flag, new_state, data) = {
             let applied_protocol = ap(ap(protocol.clone(), state.into()), vector.into());
             let tuple = work_to_value_tree(reduce_left_loop(&applied_protocol, env), env);
             match tuple {
@@ -406,9 +406,11 @@ fn interact0(protocol: &ApTree, env: &Env, mut state: ValueTree, point: draw::Po
                     match pair.1 {
                         VCons(pair) => {
                             let new_state = pair.0;
+                            trace!("newState = {:?}", new_state);
                             match pair.1 {
                                 VCons(pair) => {
                                     let data = pair.0;
+                                    trace!("data = {:?}", data);
                                     assert_eq!(pair.1, ValueTree::VNil);
                                     (flag, new_state.clone(), data.clone())
                                 },
@@ -440,16 +442,34 @@ impl<'a> iter::Iterator for PointIterator<'a> {
             ValueTree::VNil => None,
             ValueTree::VCons(pair) => {
                 let (head, tail) = pair.as_ref();
-                let (x, y) = match head {
-                    ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
-                    _ => panic!("Not a point"),
-                };
                 self.0 = tail;
+                let (x, y) = match head {
+                    ValueTree::VCons(pair) => {
+                        let (xy, unexplained_nil) = pair.as_ref();
+                        assert_eq!(unexplained_nil, &ValueTree::VNil); // TODO: why?
+                        match xy {
+                            ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
+                            _ => panic!("Not a point"),
+                        }
+                    },
+                    _ => panic!("Not the dummy list I expected: {:?}", head)
+                };
                 let (x, y) = match (x, y) {
                     (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
-                    _ => panic!("Not ints"),
+                    _ => panic!("Not ints: ({:?}, {:?})", x, y),
                 };
                 Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
+                //let (head, tail) = pair.as_ref();
+                //let (x, y) = match head {
+                //    ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
+                //    _ => panic!("Not a point"),
+                //};
+                //self.0 = tail;
+                //let (x, y) = match (x, y) {
+                //    (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
+                //    _ => panic!("Not ints: ({:?}, {:?})", x, y),
+                //};
+                //Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
             }
             _ => panic!("Not a list"),
         }
