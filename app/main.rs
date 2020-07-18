@@ -9,10 +9,6 @@ mod draw;
 
 use crate::aplang::*;
 
-// Deserializing
-use serde::Deserialize;
-use serde_json::Value;
-
 use structopt::StructOpt;
 use std::path::PathBuf;
 use std::io::BufReader;
@@ -33,18 +29,12 @@ struct MyOpt {
     timeout: u32,
 
     #[structopt(short, long)]
-    protocol: String,
+    protocol: Option<String>,
+
+    #[structopt(long)]
+    make_join_message_with_key: Option<i64>,
 }
 
-
-// Example of a reduced, regular type-safe structure for holding a subset of the JSON
-// The Deserialize `derive` requires the `serde` dependency.
-#[derive(Deserialize, Debug)]
-struct Repo {
-    name: String,
-    id: i32,
-    description: String
-}
 
 // Demonstrates sending an HTTP request and decoding the response as JSON.
 fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
@@ -56,14 +46,6 @@ fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>
             .send_string(body)
             .into_string()?;
     Ok(reply)
-}
-
-fn file_json(path: PathBuf) -> Result<Vec<Repo>, Box<dyn std::error::Error>> {
-    let file = File::open(path)?;
-    let reader = BufReader::new(file);
-    // Read the JSON contents of the file as an instance of `User`.
-    let json = serde_json::from_reader(reader)?;
-    Ok(json)
 }
 
 fn main() {
@@ -91,12 +73,20 @@ fn main() {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
+    if let Some(key) = opt.make_join_message_with_key {
+        use encodings::{vcons, vnil, vint};
+        let join = vcons(vint(2), vcons(vint(key), vcons(vnil(), vnil())));
+        let modulated = encodings::modulate(&join);
+        println!("{}", modulated);
+        return;
+    }
+
     let program =
-        match &opt.protocol[..] {
+        match &opt.protocol.expect("Specify a protocol")[..] {
             "galaxy" => lexer::lex("galaxy.txt"),
             "statelessdraw" => lexer::oneliner("ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil"),
             "statefuldraw" => lexer::oneliner("ap ap b ap b ap ap s ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c cons nil ap c cons"),
-            _ => panic!("Unknown protocol '{}'", opt.protocol)
+            other => panic!("Unknown protocol '{}'", other)
         };
     let (prg_var, env) = interpreter::parse_program(&program);
     let mut env = env;

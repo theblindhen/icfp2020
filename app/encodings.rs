@@ -1,15 +1,15 @@
 use crate::aplang::*;
 use crate::interpreter::*;
 
-fn vnil() -> ValueTree {
+pub fn vnil() -> ValueTree {
     ValueTree::VNil
 }
 
-fn vint(i: i64) -> ValueTree {
+pub fn vint(i: i64) -> ValueTree {
     ValueTree::VInt(i)
 }
 
-fn vcons(hd: ValueTree, tl: ValueTree) -> ValueTree {
+pub fn vcons(hd: ValueTree, tl: ValueTree) -> ValueTree {
     ValueTree::VCons(Box::from((hd, tl)))
 }
 

@@ -16,10 +16,7 @@ path = "app/submission.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossbeam-channel = "0.4.2"
-ureq = { version = "*", default-features = false, features = ["json"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = { version = "1.0" }
+ureq = { version = "*", default-features = false }
 clap = { version = "2.33.1", default-features = false }
 structopt = { version = "0.3.15", default-features = false }
 log = { version = "0.4.0", default-features = false }
