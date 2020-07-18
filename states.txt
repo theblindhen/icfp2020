@@ -1,0 +1,88 @@
+The galaxy:
+11011000011111011010110011010110000
+
+Reaching the Galaxy:
+
+ROUND 1
+State
+00
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 3
+ROUND 2
+State
+1101011110100011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 3
+ROUND 3
+State
+110101111011000010011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 3
+ROUND 4
+State
+110101111011000100011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 3
+ROUND 5
+State
+110101111011000110011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+3 3
+ROUND 6
+State
+11011000011111011000010011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+3 3
+ROUND 7
+State
+11011000011111011000100011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 8
+ROUND 8
+State
+11011000011111011000110011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 9
+ROUND 9
+State
+11011000011111011001000011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+10 2
+ROUND 10
+State
+11011000011111011001010011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+3 14
+ROUND 11
+State
+11011000011111011001100011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+5 13
+ROUND 12
+State
+11011000011111011001110011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 10
+ROUND 13
+State
+11011000011111011010000011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+9 4
+ROUND 14
+State
+11011000011111011010010011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+8 10
+ROUND 15
+State
+11011000011111011010100011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+3 8
+ROUND 16
+State
+11011000011111011010110011010110000
+Type image coordinates, separated by a space (i.e. as given in an image viewer)
+258 141
+ROUND 17
+State
+110110001011110110000111101000010011010110000
