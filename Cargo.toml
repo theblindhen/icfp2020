@@ -3,6 +3,7 @@ name = "theblindhen2020"
 version = "0.1.0"
 authors = ["Johan Rosenkilde <jsrn@jsrn.dk>"]
 edition = "2018"
+default-run = "app"
 
 [[bin]]
 name = "app"
