@@ -70,13 +70,13 @@ impl Screen {
         let mut data = vec![0u8; width * height];
         for (i, cell) in data.iter_mut().enumerate() {
             let x = i % width;
-            let y = i / width / 4;
+            let y = i / width;
             *cell = (if self.at(x as u32, y as u32) { 255 } else { 0 });
         }
        data 
     }
 
-    fn dump_image(&self, file_name: &str) {
+    pub fn dump_image(&self, file_name: &str) {
         let w = std::fs::File::create(file_name).unwrap();
         let w = std::io::BufWriter::new(w);
         let mut encoder = png::Encoder::new(w, self.width(), self.height());
