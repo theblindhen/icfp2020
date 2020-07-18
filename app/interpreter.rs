@@ -184,6 +184,15 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
                  _ => panic!("If0 applied illegal conditional")
             }
         }
+
+        Ap3(Cons, x, y, z)
+        | Ap3(Vec, x, y, z) => {
+            // ap ap ap cons x0 x1 x2   =   ap ap x2 x0 x1
+            let zx = reduce_left_loop(&ap(z.clone(), x.clone()), env);
+            trace!("Reduce Cons by Church");
+            Step(explicit_ap(zx, y.clone()))
+        }
+
         e => panic!("Unimplemented: {:#?}", e),
     }
 }
@@ -532,6 +541,18 @@ mod test {
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap ap ap if0 1 :99 1"), &mut env),
             wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap car ap ap cons 1 ap ap cons 2 3"), &mut env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap car ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
+            wint(2)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap cdr ap cdr ap ap cons 1 ap ap cons 2 3"), &mut env),
+            wint(3)
         );
     }
 }
