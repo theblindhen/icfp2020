@@ -367,12 +367,12 @@ impl<'a> iter::Iterator for PointIterator<'a> {
         match self.0 {
             ValueTree::VNil => None,
             ValueTree::VCons(pair) => {
-                let (head, tail) = pair.as_ref();
-                self.0 = tail;
+                let (head, unexplained_nil) = pair.as_ref();
+                assert_eq!(unexplained_nil, &ValueTree::VNil); // TODO: why?
                 let (x, y) = match head {
                     ValueTree::VCons(pair) => {
-                        let (xy, unexplained_nil) = pair.as_ref();
-                        assert_eq!(unexplained_nil, &ValueTree::VNil); // TODO: why?
+                        let (xy, next_points) = pair.as_ref();
+                        self.0 = next_points;
                         match xy {
                             ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
                             _ => panic!("Not a point"),
@@ -385,17 +385,6 @@ impl<'a> iter::Iterator for PointIterator<'a> {
                     _ => panic!("Not ints: ({:?}, {:?})", x, y),
                 };
                 Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
-                //let (head, tail) = pair.as_ref();
-                //let (x, y) = match head {
-                //    ValueTree::VCons(pair) | ValueTree::VVec(pair) => pair.as_ref(),
-                //    _ => panic!("Not a point"),
-                //};
-                //self.0 = tail;
-                //let (x, y) = match (x, y) {
-                //    (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
-                //    _ => panic!("Not ints: ({:?}, {:?})", x, y),
-                //};
-                //Some(draw::Point(x.try_into().unwrap(), y.try_into().unwrap()))
             }
             _ => panic!("Not a list"),
         }

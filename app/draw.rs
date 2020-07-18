@@ -1,6 +1,7 @@
 use crate::bits2d::Bits2D;
 use std::iter::{IntoIterator, Iterator};
 use std::fmt;
+use std::io::BufRead;
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
 pub struct Point(pub u32, pub u32);
@@ -8,7 +9,26 @@ pub struct Point(pub u32, pub u32);
 pub struct Screen(Bits2D);
 
 pub fn point_from_terminal() -> Option<Point> {
-    None // TODO
+    println!("Type coordinates, separated by a space");
+    let mut buf = String::new();
+    let mut stdin = std::io::stdin();
+    let mut stdin = stdin.lock();
+    loop {
+        if stdin.read_line(&mut buf).unwrap() == 0 {
+            return None
+        }
+        let words: Vec<_> = buf.split_whitespace().collect();
+        match &words[..] {
+            [x, y] => {
+                match (x.parse(), y.parse()) {
+                    (Ok(x), (Ok(y))) => return Some(Point(x, y)),
+                    _ => ()
+                }
+            }
+            _ => ()
+        }
+        println!("Bad input. Try again.")
+    }
 }
 
 pub fn image_from_list<Collection>(points: Collection) -> Screen
