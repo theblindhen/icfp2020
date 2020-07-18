@@ -15,7 +15,7 @@ use std::env;
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = encodings::modulate(&body);
 
-    println!("Sending POST request with body {:?} to {}", body, url);
+    println!("Sending POST request with body {} to {}", body, url);
 
     let response = ureq::post(url)
         .timeout(std::time::Duration::from_secs(30))
@@ -30,7 +30,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
         );
     }
 
-    println!("Received POST response {:?}", decoded_response);
+    println!("Received POST response {}", decoded_response);
 
     Ok(decoded_response)
 }
@@ -58,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let player_key: i64 = args[2].parse().unwrap();
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
-    let url = format!("{}/aliens/send", server_url);
+    let url = format!("{}/aliens/send?apiKey=91bf0ff907084b7595841e534276a415", server_url);
 
     let _ = post(&url, &join_msg(player_key))?;
     let _ = post(&url, &start_msg(player_key))?;

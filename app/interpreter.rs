@@ -113,6 +113,8 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         WorkT(_) => Id(wtree),
 
         // Unary functions
+        Ap1(Nil, _) => Step(WorkT(Token::True)),
+
         Ap1(fun, arg) if is_eager_fun1(fun) => match (fun, reduce_left_loop(arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
@@ -256,7 +258,7 @@ fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
             work_to_value_tree(reduce_left_loop(left, env), env),
             work_to_value_tree(reduce_left_loop(right, env), env),
         ))),
-       _ => panic!("Non-value work tree")
+       _ => panic!("Non-value work tree: {:?}", tree)
     }
 }
 
@@ -437,7 +439,7 @@ impl<'a> iter::IntoIterator for &ConsList<'a> {
 
 pub fn send(data: &ValueTree) -> ValueTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
-    println!("Sending request to {}...", url);
+    println!("Sending POST request with body:\n{}", data);
 
     let body = crate::encodings::modulate(data);
     trace!("POSTing: {}", body);
@@ -450,7 +452,9 @@ pub fn send(data: &ValueTree) -> ValueTree {
 
     trace!("Got POST reply: {}", reply);
 
-    crate::encodings::demodulate(&reply).0
+    let decoded_reply = crate::encodings::demodulate(&reply).0;
+    println!("Received POST response:\n{}", decoded_reply);
+    decoded_reply
 }
 
 #[cfg(test)]
