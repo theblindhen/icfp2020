@@ -16,19 +16,24 @@ mod n {
     pub use nom::sequence::*;
 }
 
-pub fn lex(file: &str) -> Result<Program, Box<dyn std::error::Error>> {
+pub fn lex(file: &str) -> Program {
     let mut program: Program = vec![];
 
-    let file = fs::File::open(file)?;
+    let file = fs::File::open(file).unwrap();
     let lines = io::BufReader::new(file).lines();
     for line in lines {
-        let line = line?;
+        let line = line.unwrap();
         let (remaining, assignment) =
             assignment(&line).expect("Parse error (TODO: error handling)");
         assert_eq!(remaining, "");
         program.push(assignment);
     }
-    Ok(program)
+    program
+}
+
+pub fn oneliner(expr: &str) -> Program {
+    let (_, words) = crate::lexer::aplist(&(String::from(" ") + expr)).unwrap();
+    vec![(Var(-1), words)]
 }
 
 /// Doesn't include the newline
