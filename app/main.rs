@@ -111,7 +111,7 @@ fn main() {
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
         overlay.dump_image(&format!("imgs/round_{:03}.png", round));
-        match draw::point_from_terminal() {
+        match draw::point_from_terminal(overlay.xstart, overlay.ystart) {
             None => return,
             Some(new_point) => {
                 point = new_point;

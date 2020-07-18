@@ -36,8 +36,9 @@ pub struct Screen {
     ystart: i64, // can be 0 or negative
 }
 
-pub fn point_from_terminal() -> Option<Point> {
-    println!("Type coordinates, separated by a space");
+pub fn point_from_terminal(xstart : i64, ystart : i64) -> Option<Point> {
+    // println!("Coordinate offsets on overlay image were ({}, {})", xstart, ystart);
+    println!("Type image coordinates, separated by a space (i.e. as given in an image viewer)");
     let mut buf = String::new();
     let mut stdin = std::io::stdin();
     let mut stdin = stdin.lock();
@@ -49,7 +50,10 @@ pub fn point_from_terminal() -> Option<Point> {
         match &words[..] {
             [x, y] => {
                 match (x.parse(), y.parse()) {
-                    (Ok(x), (Ok(y))) => return Some(Point(x, y)),
+                    (Ok(x), (Ok(y))) => {
+                        let p = Point(x,y); // For type infer
+                        return Some(Point(x+xstart,y+ystart))
+                    }
                     _ => ()
                 }
             }
@@ -169,10 +173,10 @@ impl fmt::Display for Screen {
 
 pub struct Overlay{
     screens: Vec<Screen>,  // vec of rows
-    width: u32,
-    height: u32,
-    xstart: i64, // can be 0 or negative
-    ystart: i64, // can be 0 or negative
+    pub width: u32,
+    pub height: u32,
+    pub xstart: i64, // can be 0 or negative
+    pub ystart: i64, // can be 0 or negative
 }
 
 impl Overlay {
@@ -238,6 +242,8 @@ impl Overlay {
         w.write_image_data(&data).unwrap();
     }   
 }
+
+
 
 fn fto8(f : f32) -> u8 {
     let i = (f * 256.) as i64;
