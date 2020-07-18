@@ -30,6 +30,16 @@ fn reduce_left_loop(tree: &ApTree, env: &Env) -> WorkTree {
     }
 }
 
+fn explicit_ap(fun: WorkTree, arg: ApTree) -> WorkTree {
+    use WorkTree::*;
+    match fun {
+        WorkT(token) => Ap1(token, arg),
+        Ap1(token, arg1) => Ap2(token, arg1, arg),
+        Ap2(token, arg1, arg2) => Ap3(token, arg1, arg2, arg),
+        Ap3(_,_,_,_) => panic!("Met unapplicable Ap3")
+    }
+}
+
 fn reduce_tree(tree: &ApTree, env : &Env) -> Reduction {
     use ApTree::*;
     use ApArity::*;
@@ -41,13 +51,8 @@ fn reduce_tree(tree: &ApTree, env : &Env) -> Reduction {
         T(token) => Id(WorkT(*token)),
         Ap(body) => {
             let (oper, arg) = body.as_ref();
-            let oper = reduce_left_loop(&oper.clone(), &env);
-            match oper {
-                WorkT(token) => Step(Ap1(token, arg.clone())),
-                Ap1(token, arg1) => Step(Ap2(token, arg1.clone(), arg.clone())),
-                Ap2(token, arg1, arg2) => Step(Ap3(token, arg1.clone(), arg2.clone(), arg.clone())),
-                Ap3(_,_,_,_) => panic!("Met unapplicable Ap3")
-            }
+            Step(explicit_ap(reduce_left_loop(&oper.clone(), &env),
+                             arg.clone()))
         },
     }
 }
@@ -60,21 +65,37 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
     match &wtree {
         WorkT(_) => Id(wtree),
         Ap1(fun, arg) if is_eager_fun1(*fun) => {
+            // Eagerly applied on first arg (when partially applied):
+            // Inc, Dec, Neg, Pwr2, Add, Multiply, Div, Eq, Lt, If0,
+            // Car, Cdr, IsNil
             match (fun, reduce_left_loop(&arg, &env)) {
                 (Inc, WorkT(Int(n))) => Step(WorkT(Int(n+1))),
                 (Dec, WorkT(Int(n))) => Step(WorkT(Int(n-1))),
                 (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
                 (Pwr2, WorkT(Int(n))) => panic!("Unimplemented pwr2"),
                 (Add, WorkT(Int(n))) => Id(Ap1(Add, int(n))),
+                (I, body) => Step(body),
                 // TODO: Add more
                 _ => panic!("Eager arg should evaluate to token")
             }
         },
-        Ap1(fun, arg) if !is_eager_fun1(*fun) => {
-            match fun {
-                I => Step(reduce_left_loop(&arg, &env)),
-                _ => Id(wtree),
+        // Lazy applied on first arg (when partially applied):
+        // True, False,  S, C, B, Cons, Vec
+        Ap1(True, _) | Ap1(False, _) | Ap1(S, _) | Ap1(C, _) | Ap1(B, _) | Ap1(Cons, _) | Ap1(Vec, _)  => Id(wtree),
+
+        Ap2(Add, left, right) => {
+            match (reduce_left_loop(&left, &env), reduce_left_loop(&right, &env)) {
+                (WorkT(Int(x)), WorkT(Int(y))) => Step(WorkT(Int(x+y))),
+                _ => panic!("Add with non-int args")
             }
+        }
+        Ap2(True, left, right) => Step(reduce_left_loop(&left, &env)),
+        Ap2(False, left, right) => Step(reduce_left_loop(&right, &env)),
+
+        Ap2(S, _, _) => Id(wtree),
+        Ap3(S, x, y, z) => {
+            let xz = reduce_left_loop(&ap(x.clone(), z.clone()), &env);
+            Step(explicit_ap(xz, ap(y.clone(), z.clone())))
         }
         e => panic!("Unimplemented: {:#?}", e)
     }
@@ -290,7 +311,7 @@ mod test {
     fn tree_of_str(expr: &str) -> ApTree {
         match crate::lexer::aplist(&(String::from(" ") + expr)) {
             Ok(("", words)) => words_to_tree(&words),
-            e => panic!("You bastard {:#?}!", e),
+            e => panic!("Lex error {:#?}!", e),
         }
     }
 
@@ -323,11 +344,26 @@ mod test {
 
     #[test]
     fn test_reduce_left_loop() {
-        let env = Env::default();
+        let mut env = Env::default();
+        env.insert(Var(99), tree_of_str("ap :99 :99")); // diverges
         assert_eq!(reduce_left_loop(&tree_of_str("ap inc 0"), &env),
                    wint(1));
         assert_eq!(reduce_left_loop(&tree_of_str("ap add ap inc 0"), &env),
                    wap1(Add, int(1)));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap add 0 1"), &env),
+                   wint(1));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap add 0 ap inc 0"), &env),
+                   wint(1));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap add ap ap add 0 ap inc 0 2"), &env),
+                   wint(3));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap t 1 :99"), &env),
+                   wint(1));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap f :99 1"), &env),
+                   wint(1));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap ap s add inc 1"), &env),
+                   wint(3));
+        assert_eq!(reduce_left_loop(&tree_of_str("ap ap ap s t :99 1"), &env),
+                   wint(1));
     }
       
 }

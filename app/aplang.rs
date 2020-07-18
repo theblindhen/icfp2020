@@ -14,8 +14,6 @@ pub enum Token {
     Inc,
     Dec,
     Neg,
-    Modulate,
-    Demodulate,
     Pwr2,
     // Binary operators
     Add,
@@ -35,7 +33,7 @@ pub enum Token {
     Car,   // car (cons x y) = x    and    car x = x t
     Cdr,   // cdr (cons x y) = y    and    cdr x = x f
     Vec,   // Alias for Cons, perhaps meant for pairs-of-ints (pixels)
-    Nil,   // nil x = t
+    Nil,   // We pretend it is a token (crossing fingers), but lambda def is: nil x = t
     IsNil,
     // Drawing
     Draw, // draw list[<vecs-of pixels>] = screen with listed pixels filled
@@ -43,13 +41,14 @@ pub enum Token {
     DrawList, //TODO: Word. drawlist ([ x,y,... ]) = [ draw x, draw y, ... ]
     // Protocol
     Send,
-
+    Modulate,
+    Demodulate,
 }
 
 pub fn is_eager_fun1(fun: Token) -> bool {
     use Token::*;
     match fun {
-        Inc | Dec | Neg | Pwr2 | Add | Multiply | Div | Eq | Lt | If0 | Car | Cdr | IsNil => true,
+        Inc | Dec | Neg | Pwr2 | Add | Multiply | Div | Eq | Lt | If0 | Car | Cdr | IsNil | I => true,
         _ => false,
     }
 }
