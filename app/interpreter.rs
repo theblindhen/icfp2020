@@ -109,6 +109,8 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         WorkT(_) => Id(wtree),
 
         // Unary functions
+        Ap1(Nil, _) => Step(WorkT(Token::True)),
+
         Ap1(fun, arg) if is_eager_fun1(fun) => match (fun, reduce_left_loop(arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
@@ -252,7 +254,7 @@ fn work_to_value_tree(tree: WorkTree, env: &mut Env) -> ValueTree {
             work_to_value_tree(reduce_left_loop(left, env), env),
             work_to_value_tree(reduce_left_loop(right, env), env),
         ))),
-       _ => panic!("Non-value work tree")
+       _ => panic!("Non-value work tree: {:?}", tree)
     }
 }
 
