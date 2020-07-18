@@ -30,7 +30,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
         );
     }
 
-    println!("Received POST response {:?}", response);
+    println!("Received POST response {:?}", decoded_response);
 
     Ok(decoded_response)
 }
