@@ -92,7 +92,7 @@ fn reduce_tree(tree: &ApTree, env: &mut Env) -> Reduction {
         Ap(body) => {
             let (oper, arg) = body.as_ref();
             Step(explicit_ap(
-                reduce_left_loop(&oper.clone(), env),
+                reduce_left_loop(oper, env),
                 arg.clone(),
             ))
         }
