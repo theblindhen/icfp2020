@@ -28,12 +28,18 @@ impl Env {
         match self.m.get(&v) {
             Some(Open(aptree)) => {
                 let wtree = reduce_left_loop(&aptree.clone(), self);
-                //TODO: Insert back
+                self.m.insert(v, Reduced(wtree.clone()));
                 wtree
             },
             Some(Reduced(wtree)) => wtree.clone(),
             None => panic!("Unknown variable")
         }
+    }
+
+    fn fresh_var(&mut self) -> Var {
+        let i = self.id + 1;
+        self.id = i;
+        Var(-i)
     }
 }
 
@@ -158,8 +164,10 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
             => Id(wtree),
 
         Ap3(S, x, y, z) => {
-            let xz = reduce_left_loop(&ap(x.clone(), z.clone()), env);
-            Step(explicit_ap(xz, ap(y.clone(), z.clone())))
+            let zvar = env.fresh_var();
+            env.insert(zvar, z.clone());
+            let xz = reduce_left_loop(&ap(x.clone(), ApTree::T(V(zvar))), env);
+            Step(explicit_ap(xz, ap(y.clone(), ApTree::T(V(zvar)))))
         }
         Ap3(C, x, y, z) => {
             let xz = reduce_left_loop(&ap(x.clone(), z.clone()), env);
