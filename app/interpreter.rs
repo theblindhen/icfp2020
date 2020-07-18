@@ -303,7 +303,11 @@ mod value_tree_parser {
 
         let parse_cons_list =
             n::map(
-                n::delimited(n::tag("["), n::separated_list(n::tag(", "), value_tree), n::tag("]")),
+                n::delimited(
+                    n::tag("["),
+                    n::separated_list(n::tag(", "), value_tree),
+                    n::tag("]")
+                ),
                 |trees| {
                     let mut result = ValueTree::VNil;
                     for tree in trees.into_iter().rev() {
