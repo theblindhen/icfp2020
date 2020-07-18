@@ -64,26 +64,35 @@ impl Screen {
         self.0[(x,y)]
     }
 
-    fn as_linear_vector(&self) -> Vec<u8> {
-        let width = self.width() as usize;
-        let height = self.height() as usize;
-        let mut data = vec![0u8; width * height];
-        for (i, cell) in data.iter_mut().enumerate() {
-            let x = i % width;
-            let y = i / width;
-            *cell = (if self.at(x as u32, y as u32) { 255 } else { 0 });
-        }
-       data 
-    }
-
-    pub fn dump_image(&self, file_name: &str) {
+    pub fn dump_image(&self, file_name: &str, rgba: (u8,u8,u8,u8)) {
         let w = std::fs::File::create(file_name).unwrap();
         let w = std::io::BufWriter::new(w);
         let mut encoder = png::Encoder::new(w, self.width(), self.height());
-        encoder.set_color(png::ColorType::Grayscale);
+        encoder.set_color(png::ColorType::RGBA);
         encoder.set_depth(png::BitDepth::Eight);
         let mut w = encoder.write_header().unwrap();
-        w.write_image_data(&self.as_linear_vector()).unwrap();
+
+        let width = self.width() as usize;
+        let height = self.height() as usize;
+        let mut data = vec![0u8; 4*width * height];
+        let (r,g,b,a) = rgba;
+        for x in 0..width {
+            for y in 0..height {
+                let ptr = 4*(y*width + x);
+                if self.at(x as u32, y as u32) {
+                    data[ptr] = r;
+                    data[ptr+1] = g;
+                    data[ptr+2] = b;
+                    data[ptr+3] = a;
+                } else {
+                    data[ptr] = 0;
+                    data[ptr+1] = 0;
+                    data[ptr+2] = 0;
+                    data[ptr+3] = 255;
+                }
+            }
+        }
+        w.write_image_data(&data).unwrap();
     }
 }
 
