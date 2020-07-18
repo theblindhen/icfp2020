@@ -6,6 +6,7 @@ mod draw;
 mod encodings;
 mod interpreter;
 mod lexer;
+mod nom_helpers;
 
 use encodings::{vcons, vint, vnil};
 use interpreter::*;

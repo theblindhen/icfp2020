@@ -4,17 +4,7 @@ use std::fs;
 use std::io;
 use std::io::BufRead;
 
-use nom::IResult;
-/// This module makes nom's built-in identifiers short while still making it
-/// clear they come from nom.
-mod n {
-    pub use nom::branch::*;
-    pub use nom::bytes::complete::*;
-    pub use nom::character::complete::*;
-    pub use nom::combinator::*;
-    pub use nom::multi::*;
-    pub use nom::sequence::*;
-}
+use crate::nom_helpers::*;
 
 pub fn lex(file: &str) -> Program {
     let mut program: Program = vec![];
@@ -54,10 +44,6 @@ fn variable(s: &str) -> IResult<&str, Var> {
 
 pub fn aplist(s: &str) -> IResult<&str, Vec<Word>> {
     n::many1(n::preceded(n::tag(" "), word))(s)
-}
-
-fn decint(input: &str) -> IResult<&str, &str> {
-    n::recognize(n::preceded(n::opt(n::tag("-")), n::digit1))(input)
 }
 
 fn token(input: &str) -> IResult<&str, Token> {

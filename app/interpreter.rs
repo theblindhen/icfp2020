@@ -277,6 +277,50 @@ impl From<ValueTree> for ApTree {
     fn from(t: ValueTree) -> Self { (&t).into() }
 }
 
+pub use value_tree_parser::parse_value_tree;
+
+mod value_tree_parser {
+    use super::*;
+    use crate::nom_helpers::*;
+
+    pub fn parse_value_tree(s: &str) -> Option<ValueTree> {
+        match value_tree(s) {
+            Ok((_, tree)) => Some(tree),
+            _ => None
+        }
+    }
+
+    fn value_tree(s: &str) -> IResult<&str, ValueTree> {
+        let parse_pair =
+            n::delimited(
+                n::tag("("),
+                n::separated_pair(value_tree, n::tag(", "), value_tree),
+                n::tag(")")
+            );
+
+        let parse_int =
+            n::map_res(decint, |s: &str| s.parse());
+
+        let parse_cons_list =
+            n::map(
+                n::delimited(n::tag("["), n::separated_list(n::tag(", "), value_tree), n::tag("]")),
+                |trees| {
+                    let mut result = ValueTree::VNil;
+                    for tree in trees.into_iter().rev() {
+                        result = ValueTree::VCons(Box::new((tree, result)));
+                    }
+                    result
+                }
+            );
+
+        n::alt((
+            n::map(parse_int, ValueTree::VInt),
+            n::map(parse_pair, |pair| ValueTree::VCons(Box::new(pair))),
+            parse_cons_list,
+        ))(s)
+    }
+}
+
 #[derive(Debug)]
 pub enum ApPartial {
     PendingBoth,

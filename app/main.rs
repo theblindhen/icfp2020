@@ -6,6 +6,7 @@ mod lexer;
 mod interpreter;
 mod bits2d;
 mod draw;
+mod nom_helpers;
 
 use crate::aplang::*;
 use crate::encodings::*;
