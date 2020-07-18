@@ -1,6 +1,7 @@
 #![allow(unused)]
 
 mod aplang;
+mod value_tree;
 mod bits2d;
 mod draw;
 mod encodings;
@@ -10,6 +11,7 @@ mod nom_helpers;
 
 use encodings::{vcons, vint, vnil};
 use interpreter::*;
+use value_tree::*;
 use log::*;
 use std::env;
 
