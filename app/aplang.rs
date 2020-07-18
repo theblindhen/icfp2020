@@ -3,7 +3,7 @@
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Var (pub i32);
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Token {
     // Constants
     True,
@@ -44,7 +44,7 @@ pub enum Token {
     Demodulate,
 }
 
-pub fn is_eager_fun1(fun: Token) -> bool {
+pub fn is_eager_fun1(fun: &Token) -> bool {
     use Token::*;
     match fun {
         Inc | Dec | Neg | Pwr2 | Car | Cdr | IsNil | I => true,
@@ -52,7 +52,7 @@ pub fn is_eager_fun1(fun: Token) -> bool {
     }
 }
 
-pub fn is_eager_fun2(fun: Token) -> bool {
+pub fn is_eager_fun2(fun: &Token) -> bool {
     use Token::*;
     match fun {
         Add | Multiply | Div | Eq | Lt => true,
@@ -75,7 +75,7 @@ pub fn is_eager_fun2(fun: Token) -> bool {
 //     }
 // }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Word {
     WAp,
     // OpenList,
@@ -103,36 +103,6 @@ pub enum ApArity<'a> {
     Ternary(Token, &'a ApTree, &'a ApTree, &'a ApTree),
     TooManyAry(&'a ApTree, &'a ApTree),
 }
-
-pub fn get_arity(tree: &ApTree) -> ApArity {
-    use ApArity::*;
-    use ApTree::*;
-    match tree {
-        T(token) => ZeroAry(*token),
-        Ap(bodyz) => {
-            let (optreez, argz) = bodyz.as_ref();
-            match optreez {
-                T(oper) => Unary(*oper, argz),
-                Ap(bodyy) => {
-                    let (optreey, argy) = bodyy.as_ref();
-                    match optreey {
-                        T(oper) => Binary(*oper, argy, argz),
-                        Ap(bodyx) => {
-                            let (optreex, argx) = bodyx.as_ref();
-                            match optreex {
-                                T(oper) => Ternary(*oper, argx, argy, argz),
-                                Ap(_) => {
-                                    TooManyAry(optreez, argz)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 
 pub fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
     return ApTree::Ap(Box::from((arg1, arg2)));

@@ -116,7 +116,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         // Unary functions
         Ap1(Nil, _) => Step(WorkT(Token::True)),
 
-        Ap1(fun, arg) if is_eager_fun1(fun) => match (fun, reduce_left_loop(arg, env)) {
+        Ap1(fun, arg) if is_eager_fun1(&fun) => match (fun, reduce_left_loop(arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
             (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
@@ -144,7 +144,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         | Ap1(Cons, _) => Id(wtree),
 
         // Binary functions
-        Ap2(fun, left, right) if is_eager_fun2(fun) => {
+        Ap2(fun, left, right) if is_eager_fun2(&fun) => {
             match (
                 fun,
                 reduce_left_loop(left, env),
@@ -237,7 +237,7 @@ pub fn words_to_tree(words: &Vec<Word>) -> ApTree {
         match token {
             WAp => stack.push(PendingBoth),
             WT(t) => {
-                let mut top = ApTree::T(*t);
+                let mut top = ApTree::T(t.clone());
                 loop {
                     match stack.pop() {
                         None => {
