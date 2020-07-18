@@ -67,6 +67,7 @@ fn token(input: &str) -> IResult<&str, Token> {
 
     n::alt((
         n::map(n::map_res(decint, |s: &str| s.parse()), Int),
+        n::value(If0, n::tag("if0")),
         n::value(Add, n::tag("add")),
         n::value(Inc, n::tag("inc")),
         n::value(Car, n::tag("car")),

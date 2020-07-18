@@ -86,14 +86,18 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         },
 
         // Higher arity functions are untouched on Ap1
-        // True, False,  S, C, B, Cons, Vec
         Ap1(True, _)
         | Ap1(False, _)
+        | Ap1(Add, _)
+        | Ap1(Multiply, _)
+        | Ap1(Div, _)
+        | Ap1(Eq, _)
+        | Ap1(Lt, _)
         | Ap1(S, _)
         | Ap1(C, _)
         | Ap1(B, _)
+        | Ap1(If0, _)
         | Ap1(Cons, _)
-        | Ap1(Add, _)
         | Ap1(Vec, _) => Id(wtree),
 
         // Binary functions
@@ -119,11 +123,30 @@ fn reduce_one(wtree: WorkTree, env: &Env) -> Reduction {
         Ap2(Cons, _, _) | Ap2(Vec, _, _) => Id(wtree),
 
         // Higher arity functions are untouched on Ap2
-        Ap2(S, _, _) => Id(wtree),
+        Ap2(S, _, _)
+        | Ap2(C, _, _)
+        | Ap2(B, _, _)
+        | Ap2(If0, _, _)
+            => Id(wtree),
 
         Ap3(S, x, y, z) => {
             let xz = reduce_left_loop(&ap(x.clone(), z.clone()), &env);
             Step(explicit_ap(xz, ap(y.clone(), z.clone())))
+        }
+        Ap3(C, x, y, z) => {
+            let xz = reduce_left_loop(&ap(x.clone(), z.clone()), &env);
+            Step(explicit_ap(xz, y.clone()))
+        }
+        Ap3(B, x, y, z) => {
+            let x = reduce_left_loop(&x, &env);
+            Step(explicit_ap(x, ap(y.clone(), z.clone())))
+        }
+        Ap3(If0, cond, left, right) => {
+            match reduce_left_loop(&cond, &env) {
+                WorkT(Int(0)) => Step(reduce_left_loop(&left, &env)),
+                WorkT(Int(1)) => Step(reduce_left_loop(&right, &env)),
+                 _ => panic!("If0 applied illegal conditional")
+            }
         }
         e => panic!("Unimplemented: {:#?}", e),
     }
@@ -563,6 +586,26 @@ mod test {
         assert_eq!(
             reduce_left_loop(&tree_of_str("ap isnil ap ap cons :99 :99"), &env),
             wbool(false)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap c lt 0 1"), &env),
+            wbool(false)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap c t :99 1"), &env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap ap b f :99 :99 1"), &env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap if0 0 1 :99"), &env),
+            wint(1)
+        );
+        assert_eq!(
+            reduce_left_loop(&tree_of_str("ap ap ap if0 1 :99 1"), &env),
+            wint(1)
         );
     }
 }
