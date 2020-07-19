@@ -46,7 +46,7 @@ fn join_msg(player_key: i64) -> ValueTree {
 fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
     match get_max_resources(game_response) {
         Some(max_resources) => {
-            parse(&format!("[3, {}, [{}, 0, 0, 1]]", player_key, max_resources-2))
+            parse(&format!("[3, {}, [{}, 0, 1, 1]]", player_key, max_resources-2-12))
         },
         None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
     }
