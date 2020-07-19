@@ -5,13 +5,14 @@ use crate::value_tree::*;
 use log::*;
 use std::env;
 use std::io::BufRead;
+use std::convert::TryInto;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
 
-    println!("Sending: {}", body);
+    println!("Sending:  {}", body);
 
     loop {
         let response = ureq::post(url)
@@ -47,6 +48,10 @@ pub fn parse(tree: &str) -> ValueTree {
 
 fn join_msg(player_key: i64) -> ValueTree {
     parse(&format!("[2, {}, []]", player_key))
+}
+
+fn multiplayer_msg() -> ValueTree {
+    parse(&format!("[1, 0]"))
 }
 
 fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
@@ -130,7 +135,7 @@ impl AI for Stationary {
             }
             _ => {
                 error!("Error in survivor ai: no static game info or game state");
-                vec!()
+                vec![]
             }
         }
     }
@@ -142,24 +147,20 @@ impl AI for Noop {
     }
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
-        vec!()
+        vec![]
     }
 }
 
-fn run_ai(
-    ai: &mut dyn AI,
-    url: &str,
-    player_key: i64,
-    initial_game_response: ValueTree,
-) -> Result<(), Box<dyn std::error::Error>> {
+fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
+    let initial_game_response = post(&url, &join_msg(player_key))?;
     let mut game_response = try_parse_response(&initial_game_response);
     game_response = try_parse_response(&post(&url, &ai.start(player_key, game_response))?);
 
     loop {
         let cmds = match game_response {
-            None => vec!(),
+            None => vec![],
             Some(game_response) => ai.step(game_response),
         };
         let mut commands = vnil();
@@ -173,10 +174,68 @@ fn run_ai(
     }
 }
 
+fn player_key(tree: &ValueTree)-> Result<i64, Box<dyn std::error::Error>>  {
+    let lst = to_native_list(tree);
+    assert!(lst.len() == 2);
+    crate::protocol::as_int("player key", lst[1])
+}
+
+fn initiate_multiplayer_game(url: &str) -> Result<(i64, i64), Box<dyn std::error::Error>> {
+    let resp_tree = &post(&url, &multiplayer_msg())?;
+    let resp = to_native_list(resp_tree);
+    assert!(resp.len() == 2);
+
+    let player_keys = to_native_list(resp[1]);
+    assert!(player_keys.len() == 2);
+
+    Ok((player_key(player_keys[0])?, player_key(player_keys[1])?))
+}
+
+fn run_ais(
+    mut ai1: Box<dyn AI + Send>,
+    mut ai2: Box<dyn AI + Send>,
+    url: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let (player_key1, player_key2) = initiate_multiplayer_game(&url)?;
+    println!("initiate multiplayer game; player keys: {} and {}", player_key1, player_key2);
+
+    let url1 = String::from(url);
+    let thr1 = std::thread::spawn(move || {
+        let err = run_ai(&mut *ai1, &url1, player_key1);
+        println!("an error occured while running AI 1: {:?}", err);
+    });
+    let url2 = String::from(url);
+    let thr2 = std::thread::spawn(move || {
+        let err = run_ai(&mut *ai2, &url2, player_key2);
+        println!("an error occured while running AI 2: {:?}", err);
+    });
+
+    thr1.join();
+    thr2.join();
+
+    Ok(())
+}
+
+fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
+    match ai_str {
+        Some(ai_str) => match ai_str.as_ref() {
+            "stationary" => Some(Box::from(Stationary {})),
+            "noop" => Some(Box::from(Stationary {})),
+            _ => {
+                println!("unknown ai {}, using default", ai_str);
+                Some(Box::from(Stationary {}))
+            }
+        },
+        None => None,
+    }
+}
+
 pub fn main(
     server_url: &str,
     player_key: &str,
-    ai: &str,
+    ai1: Option<String>,
+    ai2: Option<String>,
     proxy: bool,
     interactive: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -190,17 +249,17 @@ pub fn main(
         format!("{}/aliens/send", server_url)
     };
 
-    let initial_game_response = post(&url, &join_msg(player_key))?;
-
-    let mut ai : Box<dyn AI> = match ai {
-        "stationary" => Box::from(Stationary{}),
-        _ => Box::from(Noop{}),
-    };
-
     if interactive {
+        post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        run_ai(&mut *ai, &url, player_key, initial_game_response)?
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Stationary {}));
+        let mut ai2 = get_ai(ai2);
+
+        match ai2 {
+            Some(mut ai2) => run_ais(ai1, ai2, &url)?,
+            None => run_ai(&mut *ai1, &url, player_key)?,
+        }
     }
 
     Ok(())

@@ -82,7 +82,7 @@ pub enum Command {
     Shoot(ShipId, (i64, i64), i64),
 }
 
-fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
+pub fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
     match tree {
         ValueTree::VInt(i) => {
             let res = i.try_into()?;
