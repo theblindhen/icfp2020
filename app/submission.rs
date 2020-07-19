@@ -90,7 +90,7 @@ fn gravity((x, y): (i64, i64)) -> (i64, i64) {
     }
 }
 
-fn decide_command(game_response: GameResponse) -> Vec<Command> {
+fn ai_stationary(game_response: GameResponse) -> Vec<Command> {
     match (game_response.static_game_info, game_response.game_state) {
         (Some(static_game_info), Some(game_state)) => {
             let our_role = static_game_info.role;
@@ -145,7 +145,7 @@ fn run_ai(
                 None => ai_noop(),
                 Some(game_response) => {
                     match ai {
-                        "survivor" => decide_command(game_response),
+                        "stationary" => ai_stationary(game_response),
                         "noop" => ai_noop(),
                         _ => ai_noop(),
                     }

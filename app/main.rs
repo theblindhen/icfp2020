@@ -23,7 +23,7 @@ use std::fs::File;
 
 use log::*;
 
-const DEFAULT_AI : &'static str = "survivor";
+const DEFAULT_AI : &'static str = "stationary";
 
 // Struct for command line parsing 
 #[derive(StructOpt, Debug)]
@@ -131,10 +131,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // RUN MODE 1: SUBMISSION
     ////////////////////////////////////////
     let ai =
-        if opt.ai == "survivor" || opt.ai == "noop" {
+        if opt.ai == "stationary" || opt.ai == "noop" {
             &opt.ai
         } else {
-            error!("Unknown AI requested '{}'. Using default {}", opt.ai, DEFAULT_AI );
+            error!("Unknown AI requested '{}'. Using default '{}'", opt.ai, DEFAULT_AI );
             DEFAULT_AI
         };
     match &opt.url_and_key[..] {
