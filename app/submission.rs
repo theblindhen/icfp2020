@@ -1,13 +1,15 @@
-use crate::encodings::{vcons, vi64, vnil, modulate, demodulate};
+use crate::encodings::{demodulate, modulate, vcons, vi64, vnil};
 use crate::interpreter::*;
+use crate::protocol::*;
+use crate::value_tree::*;
 use log::*;
 use std::env;
 use std::io::BufRead;
-use crate::value_tree::*;
 
-const APIKEY : &'static str = "91bf0ff907084b7595841e534276a415";
+const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
 
-fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
+
+fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
 
     println!("Sending: {}", body);
@@ -31,10 +33,10 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 
     println!("Received: {}", decoded_response);
 
-    Ok(decoded_response)
+    Ok(parse_game_response(&decoded_response)?)
 }
 
-fn parse(tree: &str) -> ValueTree {
+pub fn parse(tree: &str) -> ValueTree {
     parse_value_tree(&tree).unwrap()
 }
 
@@ -42,14 +44,18 @@ fn join_msg(player_key: i64) -> ValueTree {
     parse(&format!("[2, {}, []]", player_key))
 }
 
-fn start_msg(player_key: i64) -> ValueTree {
-    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+fn start_msg(player_key: i64, resources: Resources) -> ValueTree {
+    parse(&format!(
+        "[3, {}, [{}, 0, 0, 0]]",
+        player_key, resources.fuel
+    ))
 }
 
-fn run_interactively(url: &str) {
+fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = String::new();
     let mut stdin = std::io::stdin();
     let mut stdin = stdin.lock();
+
     loop {
         println!("Write a message to send to server");
 
@@ -57,37 +63,92 @@ fn run_interactively(url: &str) {
             panic!("dummy")
         }
 
-        post(url, &parse(&buf)); 
+        post(url, &parse(&buf));
     }
 }
 
-fn run_ai(url: &str, player_key: i64) {
+// compute gravity in given position
+fn gravity((x, y): (i64, i64)) -> (i64, i64) {
+    if x.abs() == y.abs() {
+        (-x.signum(), -y.signum())
+    } else {
+        if x.abs() > y.abs() {
+            (-x.signum(), 0)
+        } else {
+            (0, -y.signum())
+        }
+    }
+}
+
+fn decide_command(game_response: GameResponse) -> Vec<Command> {
+    match game_response.game_state {
+        Some(game_state) => {
+            let our_role = game_response.static_game_info.role;
+            let our_ship = game_state
+                .ships
+                .iter()
+                .find(|&ship| ship.role == our_role)
+                .unwrap();
+
+            let (gx, gy) = gravity(our_ship.position);
+
+            vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
+        }
+        None => vec![],
+    }
+}
+
+fn run_ai(
+    url: &str,
+    player_key: i64,
+    initial_game_response: GameResponse,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::protocol::*;
+
+    let mut game_response = post(
+        &url,
+        &start_msg(
+            player_key,
+            initial_game_response.static_game_info.suggested_resources,
+        ),
+    )?;
+
     loop {
-        post(url, &parse(&format!("[4, {}, []]", player_key)));
+        let mut commands = vnil();
+        for cmd in decide_command(game_response) {
+            commands = vcons(flatten_command(cmd), commands);
+        }
+
+        let request = vcons(vi64(4), vcons(vi64(player_key), vcons(commands, vnil())));
+
+        game_response = post(url, &request)?;
     }
 }
 
-pub fn main(server_url: &str, player_key: &str, proxy: bool, interactive: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn main(
+    server_url: &str,
+    player_key: &str,
+    proxy: bool,
+    interactive: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     let player_key: i64 = player_key.parse().unwrap();
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
 
-    let url =
-        if proxy {
-            format!("{}/aliens/send?apiKey={}", server_url, APIKEY)
-        } else {
-            format!("{}/aliens/send", server_url)
-        };
+    let url = if proxy {
+        format!("{}/aliens/send?apiKey={}", server_url, APIKEY)
+    } else {
+        format!("{}/aliens/send", server_url)
+    };
 
-    let _ = post(&url, &join_msg(player_key))?;
-    let _ = post(&url, &start_msg(player_key))?;
+    let initial_game_response = post(&url, &join_msg(player_key))?;
 
     if interactive {
-        run_interactively(&url)
+        run_interactively(&url, player_key)?
     } else {
-        run_ai(&url, player_key)
+        run_ai(&url, player_key, initial_game_response)?
     }
 
     Ok(())

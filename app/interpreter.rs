@@ -360,34 +360,6 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
     }
 }
 
-struct ConsList<'a>(&'a ValueTree);
-
-struct ConsIterator<'a>(&'a ValueTree);
-
-impl<'a> iter::Iterator for ConsIterator<'a> {
-    type Item = &'a ValueTree;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        match self.0 {
-            ValueTree::VNil => None,
-            ValueTree::VCons(pair) => {
-                let (head, tail) = pair.as_ref();
-                self.0 = tail;
-                Some(head)
-            }
-            _ => panic!("Not a list: {:?}", self.0),
-        }
-    }
-}
-
-impl<'a> iter::IntoIterator for &ConsList<'a> {
-    type Item = &'a ValueTree;
-    type IntoIter = ConsIterator<'a>;
-    fn into_iter(self) -> Self::IntoIter {
-        ConsIterator(self.0)
-    }
-}
-
 pub fn send(data: &ValueTree) -> ValueTree {
     let url = "https://icfpc2020-api.testkontur.ru/aliens/send";
     println!("Sending POST request with body:\n{}", data);

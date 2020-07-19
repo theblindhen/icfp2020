@@ -2,6 +2,7 @@ use std::fmt;
 
 use crate::aplang::*;
 use crate::nom_helpers::*;
+use std::iter;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTree {
@@ -99,4 +100,42 @@ fn value_tree(s: &str) -> IResult<&str, ValueTree> {
         n::map(parse_pair, |pair| ValueTree::VCons(Box::new(pair))),
         parse_cons_list,
     ))(s)
+}
+
+pub struct ConsList<'a>(pub &'a ValueTree);
+
+pub struct ConsIterator<'a>(&'a ValueTree);
+
+impl<'a> iter::Iterator for ConsIterator<'a> {
+    type Item = &'a ValueTree;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.0 {
+            ValueTree::VNil => None,
+            ValueTree::VCons(pair) => {
+                let (head, tail) = pair.as_ref();
+                self.0 = tail;
+                Some(head)
+            }
+            _ => panic!("Not a list: {:?}", self.0),
+        }
+    }
+}
+
+impl<'a> iter::IntoIterator for &ConsList<'a> {
+    type Item = &'a ValueTree;
+    type IntoIter = ConsIterator<'a>;
+    fn into_iter(self) -> Self::IntoIter {
+        ConsIterator(self.0)
+    }
+}
+
+pub fn to_native_list(tree: &ValueTree) -> Vec<&ValueTree> {
+    let mut vec = vec!();
+
+    for elm in &ConsList(tree) {
+        vec.push(elm);
+    }
+
+    vec
 }

@@ -8,6 +8,7 @@ mod interpreter;
 mod bits2d;
 mod draw;
 mod nom_helpers;
+mod protocol;
 mod submission;
 mod gui;
 
