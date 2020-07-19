@@ -4,9 +4,9 @@ use crate::protocol::*;
 use crate::value_tree::*;
 use crate::sim;
 use log::*;
+use std::convert::TryInto;
 use std::env;
 use std::io::BufRead;
-use std::convert::TryInto;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
 
@@ -114,6 +114,7 @@ trait AI {
 
 struct Stationary {}
 struct Noop {}
+struct Shoot {}
 
 struct Orbiting {}
 
@@ -123,24 +124,12 @@ impl AI for Stationary {
     }
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
-        match (game_response.static_game_info, game_response.game_state) {
-            (Some(static_game_info), Some(game_state)) => {
-                let our_role = static_game_info.role;
-                let our_ship = game_state
-                    .ships
-                    .iter()
-                    .find(|&ship| ship.role == our_role)
-                    .unwrap();
+        let our_role = our_role(&game_response).unwrap();
+        let our_ship = find_ship(&game_response, our_role).unwrap();
 
-                let (gx, gy) = gravity(our_ship.position);
+        let (gx, gy) = gravity(our_ship.position);
 
-                vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
-            }
-            _ => {
-                error!("Error in survivor ai: no static game info or game state");
-                vec![]
-            }
-        }
+        vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
     }
 }
 
@@ -151,6 +140,57 @@ impl AI for Noop {
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
         vec![]
+    }
+}
+
+fn find_ship(game_response: &GameResponse, role: Role) -> Option<&Ship> {
+    match &game_response.game_state {
+        Some(game_state) => game_state.ships.iter().find(|ship| ship.role == role),
+        None => None,
+    }
+}
+
+fn our_role(game_response: &GameResponse) -> Option<Role> {
+    match &game_response.static_game_info {
+        Some(game_info) => Some(game_info.role),
+        None => None,
+    }
+}
+
+fn inverse_role(role: Role) -> Role {
+    use crate::protocol::Role::*;
+
+    match role {
+        Attacker => Defender,
+        Defender => Attacker,
+    }
+}
+
+impl AI for Shoot {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+        match get_max_resources(game_response) {
+            Some(max_resources) => parse(&format!(
+                "[3, {}, [{}, 63, 12, 1]]",
+                player_key,
+                max_resources - 420
+            )),
+            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+        }
+    }
+
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        let our_role = our_role(&game_response).unwrap();
+        let our_ship = find_ship(&game_response, our_role).unwrap();
+        let opp_ship = find_ship(&game_response, inverse_role(our_role)).unwrap();
+
+        let target_x = opp_ship.position.0;
+        let target_y = opp_ship.position.1;
+        let (gx, gy) = gravity(our_ship.position);
+
+        vec![
+            Command::Shoot(our_ship.ship_id, (target_x, target_y), 63),
+            Command::Accelerate(our_ship.ship_id, (gx, gy)),
+        ]
     }
 }
 
@@ -239,7 +279,7 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
     }
 }
 
-fn player_key(tree: &ValueTree)-> Result<i64, Box<dyn std::error::Error>>  {
+fn player_key(tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
     let lst = to_native_list(tree);
     assert!(lst.len() == 2);
     crate::protocol::as_int("player key", lst[1])
@@ -261,9 +301,11 @@ fn run_ais(
     mut ai2: Box<dyn AI + Send>,
     url: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-
     let (player_key1, player_key2) = initiate_multiplayer_game(&url)?;
-    println!("initiate multiplayer game; player keys: {} and {}", player_key1, player_key2);
+    println!(
+        "initiate multiplayer game; player keys: {} and {}",
+        player_key1, player_key2
+    );
 
     let url1 = String::from(url);
     let thr1 = std::thread::spawn(move || {
@@ -288,6 +330,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
             "stationary" => Some(Box::from(Stationary {})),
             "orbiting" => Some(Box::from(Orbiting {})),
             "noop" => Some(Box::from(Noop {})),
+            "shoot" => Some(Box::from(Shoot {})),
             _ => {
                 println!("unknown ai {}, using default", ai_str);
                 Some(Box::from(Stationary {}))
