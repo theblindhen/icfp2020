@@ -10,9 +10,18 @@ type ShipId = i64;
 
 // Param1 = Fuel
 // Param2 = Cannon power
-// Param3 = ???
+// Param3 = Cooling
 // Param4 = ???
 const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
+
+// OBSERVATIONS ON PHYSICS
+//
+// HEAT AND COOLING:
+//  - When a 1-thrust is made it generates 8 heat which is added to the ship's heat value
+//  - The resource "cooling" is subtracted from the heat generation
+//  - If 8-cooling < 0 then the ship is cooled down.
+//  - Heat-capacity is 64 (perhaps = StaticGameInfo.static_unk2)
+//  - If ship's heat would exceed capacity, as much fuel is burned to compensate (active cooling)
 
 
 // OBSERVATIONS ON COMMANDS
@@ -55,7 +64,7 @@ pub struct StaticGameInfo {
     pub max_resources: i64,
     pub opponent_resources: Option<Resources>,
     pub static_unk1: ValueTree,
-    pub static_unk2: ValueTree,
+    pub static_unk2: ValueTree,  // = 64 = Heat capacity?
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -71,7 +80,7 @@ pub struct Ship {
     pub position: (i64, i64),
     pub velocity: (i64, i64),
     pub resources: Option<Resources>,
-    pub ship_unk1: ValueTree,
+    pub heat: i64,
     pub ship_unk2: ValueTree,
     pub ship_unk3: ValueTree,
 }
@@ -80,7 +89,7 @@ pub struct Ship {
 pub struct Resources {
     pub fuel: i64,
     pub cannon: i64,
-    pub param3: i64,
+    pub cooling: i64,
     pub param4: i64,
 }
 
@@ -228,9 +237,9 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
                 position: parse_tuple(ship[2])?,
                 velocity: parse_tuple(ship[3])?,
                 resources: parse_resources(ship[4])?,
-                ship_unk1: ship[5].clone(), //FIXME: Talk borrow-checker into avoiding clone()
+                heat: as_int("heat", ship[5])?,
                 ship_unk2: ship[6].clone(),
-                ship_unk3: ship[7].clone(),
+                ship_unk3: ship[7].clone(), //FIXME: Talk borrow-checker into avoiding clone()
             })
         }
     }
@@ -247,7 +256,7 @@ fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::e
         Ok(Some(Resources {
             fuel: as_int("fuel", response[0])?,
             cannon: as_int("cannon", response[1])?,
-            param3: as_int("param3", response[2])?,
+            cooling: as_int("cooling", response[2])?,
             param4: as_int("param4", response[3])?,
         }))
     }

@@ -4,7 +4,7 @@ use crate::aplang::*;
 use crate::nom_helpers::*;
 use std::iter;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum ValueTree {
     VNil,
     VInt(num_bigint::BigInt),
@@ -45,6 +45,14 @@ impl fmt::Display for ValueTree {
         Ok(())
     }
 }
+
+
+impl fmt::Debug for ValueTree {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", &self)
+    }
+}
+
 
 impl From<&ValueTree> for ApTree {
     fn from(t: &ValueTree) -> Self {
