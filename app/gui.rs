@@ -19,6 +19,8 @@ fn step(g: &mut Game, click: Point) -> crate::draw::Overlay {
     let overlay = crate::draw::Overlay::new(screens);
     g.state = new_state;
     g.screen_offset = Point(overlay.xstart, overlay.ystart);
+    println!();
+    println!("Waiting for input");
     overlay
 }
 
@@ -62,12 +64,6 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), B
     let mut y = 0;
 
     frame_c.handle(Box::new(move |ev| {
-        //println!("{:?}", ev);
-        //println!("coords {:?}", app::event_coords());
-        //println!("get mouse {:?}", app::get_mouse());
-        set_draw_color(Color::Red);
-        set_line_style(LineStyle::Solid, 3);
-
         match ev {
             Event::Push => {
                 let coords = app::event_coords();
@@ -82,6 +78,8 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), B
                 let (w, h) = (overlay.width() as i32, overlay.height() as i32);
                 image.scale(w*scale, h*scale, true, true);
                 offs.borrow().begin();
+                set_draw_color(Color::Black);
+                draw_rectf(0, 0, dim_x, dim_y);
                 image.draw(0, 0, w*scale, h*scale);
                 offs.borrow().end();
                 frame.redraw();
