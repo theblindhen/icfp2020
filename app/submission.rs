@@ -1,30 +1,34 @@
 #![allow(unused)]
 
 mod aplang;
-mod value_tree;
 mod bits2d;
 mod draw;
 mod encodings;
 mod interpreter;
 mod lexer;
 mod nom_helpers;
+mod value_tree;
 
 use encodings::{vcons, vi64, vnil};
 use interpreter::*;
-use value_tree::*;
 use log::*;
 use std::env;
 use std::io::BufRead;
+use value_tree::*;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = encodings::modulate(&body);
 
-    println!("Sending POST request with body {} to {}", body, url);
+    println!("Sending: {}", body);
 
     let response = ureq::post(url)
         .timeout(std::time::Duration::from_secs(30))
         .send_string(&encoded_body)
         .into_string()?;
+
+    if (response == "") {
+        panic!("received empty response from server");
+    }
 
     let (decoded_response, remainder) = encodings::demodulate(&response);
     if (remainder != "") {
@@ -34,39 +38,24 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
         );
     }
 
-    println!("Received POST response {}", decoded_response);
+    println!("Received: {}", decoded_response);
 
     Ok(decoded_response)
 }
 
+fn parse(tree: &str) -> ValueTree {
+    value_tree::parse_value_tree(&tree).unwrap()
+}
+
 fn join_msg(player_key: i64) -> ValueTree {
-    vcons(vi64(2), vcons(vi64(player_key), vcons(vnil(), vnil())))
+    parse(&format!("[2, {}, []]", player_key))
 }
 
 fn start_msg(player_key: i64) -> ValueTree {
-    let initial_params = vcons(
-        vi64(1),
-        vcons(vi64(1), vcons(vi64(1), vcons(vi64(1), vnil()))),
-    );
-
-    vcons(
-        vi64(3),
-        vcons(vi64(player_key), vcons(initial_params, vnil())),
-    )
+    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
-
-    let server_url = &args[1];
-    let player_key: i64 = args[2].parse().unwrap();
-
-    println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
-    let url = format!("{}/aliens/send?apiKey=91bf0ff907084b7595841e534276a415", server_url);
-
-    let _ = post(&url, &join_msg(player_key))?;
-    let _ = post(&url, &start_msg(player_key))?;
-
+fn run_interactively(url: &str) {
     let mut buf = String::new();
     let mut stdin = std::io::stdin();
     let mut stdin = stdin.lock();
@@ -77,12 +66,41 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             panic!("dummy")
         }
 
-        match value_tree::parse_value_tree(&buf) {
-            Some(wtree) => {
-                post(&url, &wtree);
-            },
-            None => ()
+        post(url, &parse(&buf)); 
+    }
+}
+
+fn run_ai(url: &str, player_key: i64) {
+    loop {
+        post(url, &parse(&format!("[4, {}, []]", player_key)));
+    }
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args: Vec<String> = env::args().collect();
+
+    let server_url = &args[1];
+    let player_key: i64 = args[2].parse().unwrap();
+    let interactive = {
+        if args.len() > 3 {
+            Some(&args[3])
+        } else {
+            None
         }
+    };
+
+    println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
+    let url = match interactive {
+        Some(api_key) => format!("{}/aliens/send?apiKey={}", server_url, api_key),
+        None => format!("{}/aliens/send", server_url),
+    };
+
+    let _ = post(&url, &join_msg(player_key))?;
+    let _ = post(&url, &start_msg(player_key))?;
+
+    match interactive {
+        Some(_) => run_interactively(&url),
+        None => run_ai(&url, player_key),
     }
 
     Ok(())
