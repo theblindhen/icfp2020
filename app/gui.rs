@@ -19,17 +19,18 @@ fn step(g: &mut Game, click: Point) -> crate::draw::Overlay {
     let overlay = crate::draw::Overlay::new(screens);
     g.state = new_state;
     g.screen_offset = Point(overlay.xstart, overlay.ystart);
+    println!();
+    println!("Waiting for input");
     overlay
 }
 
 #[cfg(feature = "gui")]
-pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::error::Error>> {
+pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), Box<dyn std::error::Error>> {
     use fltk::{app, button::*, draw::*, frame::*, window::*};
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    let (dim_x, dim_y) = (1920, 1080);
-    let scale: i32 = 4;
+    let (dim_x, dim_y) = (300 * scale, 300 * scale);
 
     let state_rc = Rc::from(RefCell::from(Game { prg_var, env, state, screen_offset: Point(0,0) }));
 
@@ -63,12 +64,6 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::
     let mut y = 0;
 
     frame_c.handle(Box::new(move |ev| {
-        //println!("{:?}", ev);
-        //println!("coords {:?}", app::event_coords());
-        //println!("get mouse {:?}", app::get_mouse());
-        set_draw_color(Color::Red);
-        set_line_style(LineStyle::Solid, 3);
-
         match ev {
             Event::Push => {
                 let coords = app::event_coords();
@@ -83,6 +78,8 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::
                 let (w, h) = (overlay.width() as i32, overlay.height() as i32);
                 image.scale(w*scale, h*scale, true, true);
                 offs.borrow().begin();
+                set_draw_color(Color::Black);
+                draw_rectf(0, 0, dim_x, dim_y);
                 image.draw(0, 0, w*scale, h*scale);
                 offs.borrow().end();
                 frame.redraw();
@@ -97,6 +94,6 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::
 }
 
 #[cfg(not(feature = "gui"))]
-pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::error::Error>> {
+pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), Box<dyn std::error::Error>> {
     panic!("GUI feature not enabled. You've built with `--no-default-features`.")
 }
