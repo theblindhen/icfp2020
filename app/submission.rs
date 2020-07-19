@@ -14,8 +14,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
     println!("Sending: {}", body);
 
     loop {
-        let response =
-            ureq::post(url)
+        let response = ureq::post(url)
             .timeout(std::time::Duration::from_secs(30))
             .send_string(&encoded_body)
             .into_string();
@@ -36,10 +35,8 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
                 println!("Received: {}", decoded_response);
 
                 return Ok(decoded_response);
-            },
-            Err(e) => {
-                error!("Error communicating with server:\n\t{}\nTrying again", e)
             }
+            Err(e) => error!("Error communicating with server:\n\t{}\nTrying again", e),
         }
     }
 }
@@ -54,10 +51,12 @@ fn join_msg(player_key: i64) -> ValueTree {
 
 fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
     match get_max_resources(game_response) {
-        Some(max_resources) => {
-            parse(&format!("[3, {}, [{}, 0, 16, 1]]", player_key, max_resources-2-(12*16)))
-        },
-        None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+        Some(max_resources) => parse(&format!(
+            "[3, {}, [{}, 0, 16, 1]]",
+            player_key,
+            max_resources - 2 - (12 * 16)
+        )),
+        None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
     }
 }
 
@@ -90,32 +89,6 @@ fn gravity((x, y): (i64, i64)) -> (i64, i64) {
     }
 }
 
-fn ai_stationary(game_response: GameResponse) -> Vec<Command> {
-    match (game_response.static_game_info, game_response.game_state) {
-        (Some(static_game_info), Some(game_state)) => {
-            let our_role = static_game_info.role;
-            let our_ship = game_state
-                .ships
-                .iter()
-                .find(|&ship| ship.role == our_role)
-                .unwrap();
-
-            let (gx, gy) = gravity(our_ship.position);
-
-            vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
-        },
-        _ => {
-            error!("Error in survivor ai: no static game info or game state");
-            ai_noop()
-        }
-    }
-}
-
-
-fn ai_noop() -> Vec<Command> {
-    vec![]
-}
-
 fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
     use crate::protocol::*;
 
@@ -128,8 +101,53 @@ fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
     }
 }
 
+trait AI {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree;
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command>;
+}
+
+struct Stationary {}
+struct Noop {}
+
+impl AI for Stationary {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+        start_msg(player_key, game_response)
+    }
+
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        match (game_response.static_game_info, game_response.game_state) {
+            (Some(static_game_info), Some(game_state)) => {
+                let our_role = static_game_info.role;
+                let our_ship = game_state
+                    .ships
+                    .iter()
+                    .find(|&ship| ship.role == our_role)
+                    .unwrap();
+
+                let (gx, gy) = gravity(our_ship.position);
+
+                vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
+            }
+            _ => {
+                error!("Error in survivor ai: no static game info or game state");
+                vec!()
+            }
+        }
+    }
+}
+
+impl AI for Noop {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+        start_msg(player_key, game_response)
+    }
+
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        vec!()
+    }
+}
+
 fn run_ai(
-    ai: &str,
+    ai: &mut dyn AI,
     url: &str,
     player_key: i64,
     initial_game_response: ValueTree,
@@ -137,21 +155,14 @@ fn run_ai(
     use crate::protocol::*;
 
     let mut game_response = try_parse_response(&initial_game_response);
-    game_response = try_parse_response(&post(&url, &start_msg(player_key, game_response))?);
+    game_response = try_parse_response(&post(&url, &ai.start(player_key, game_response))?);
 
     loop {
         println!("Game response was:\n{:?}\ny", game_response);
-        let cmds = 
-            match game_response {
-                None => ai_noop(),
-                Some(game_response) => {
-                    match ai {
-                        "stationary" => ai_stationary(game_response),
-                        "noop" => ai_noop(),
-                        _ => ai_noop(),
-                    }
-                }
-            };
+        let cmds = match game_response {
+            None => vec!(),
+            Some(game_response) => ai.step(game_response),
+        };
         let mut commands = vnil();
         for cmd in cmds {
             commands = vcons(flatten_command(cmd), commands);
@@ -170,7 +181,6 @@ pub fn main(
     proxy: bool,
     interactive: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-
     let player_key: i64 = player_key.parse().unwrap();
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
@@ -183,10 +193,15 @@ pub fn main(
 
     let initial_game_response = post(&url, &join_msg(player_key))?;
 
+    let mut ai : Box<dyn AI> = match ai {
+        "stationary" => Box::from(Stationary{}),
+        _ => Box::from(Noop{}),
+    };
+
     if interactive {
         run_interactively(&url, player_key)?
     } else {
-        run_ai(ai, &url, player_key, initial_game_response)?
+        run_ai(&mut *ai, &url, player_key, initial_game_response)?
     }
 
     Ok(())
