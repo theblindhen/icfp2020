@@ -63,7 +63,7 @@ struct MyOpt {
     interactive: bool,
 
     #[structopt(long)]
-    gui: bool,
+    gui: Option<i32>,
 
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
@@ -180,8 +180,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-    if opt.gui {
-        return gui::gui(prg_var, env, state)
+    if let Some(scale) = opt.gui {
+        return gui::gui(prg_var, env, state, scale)
     }
 
     let mut round = 0;
