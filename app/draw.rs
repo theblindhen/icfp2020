@@ -24,7 +24,6 @@ const COLORS : [RGBA; 13] =
       (244,234,150,200),
       (255,199,174,200),
     ];
-const COLOR_COORD : RGBA = (255, 255, 255, 100);
 
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash)]
@@ -36,6 +35,7 @@ pub struct Screen {
     ystart: i64, // can be 0 or negative
 }
 
+// Two ints separated by a space
 pub fn parse_two_ints(s : &str) -> Option<Point> {
     let words: Vec<_> = s.split_whitespace().collect();
     match &words[..] {
@@ -225,12 +225,7 @@ impl Overlay {
                 let x = lx as i64 + self.xstart;
                 let ptr = 4*(ly*width + lx);
                 let mut coli = 0;
-                let mut color =
-                    if x == 0 || y == 0 {
-                        COLOR_COORD
-                    } else {
-                        RGBA::default()
-                    };
+                let mut color = RGBA::default();
                 for i in 0..self.screens.len() {
                     if self.at(x, y, i) {
                         color = blend_colors(color, COLORS[i+1]);

@@ -14,6 +14,7 @@ use interpreter::*;
 use value_tree::*;
 use log::*;
 use std::env;
+use std::io::BufRead;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = encodings::modulate(&body);
@@ -65,6 +66,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let _ = post(&url, &join_msg(player_key))?;
     let _ = post(&url, &start_msg(player_key))?;
+
+    let mut buf = String::new();
+    let mut stdin = std::io::stdin();
+    let mut stdin = stdin.lock();
+    loop {
+        println!("Write a message to send to server");
+
+        if stdin.read_line(&mut buf).unwrap() == 0 {
+            panic!("dummy")
+        }
+
+        match value_tree::parse_value_tree(&buf) {
+            Some(wtree) => {
+                post(&url, &wtree);
+            },
+            None => ()
+        }
+    }
 
     Ok(())
 }
