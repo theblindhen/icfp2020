@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Johan Rosenkilde <jsrn@jsrn.dk>"]
 edition = "2018"
 
+[features]
+default = ["gui"]
+gui = ["fltk"]
+
 [[bin]]
 name = "app"
 path = "app/main.rs"
@@ -20,3 +24,4 @@ fixedbitset = "0.3"
 png = "0.16"
 num-bigint = "0.3"
 num-traits = "0.2.12"
+fltk = { version = "0.7", optional = true }

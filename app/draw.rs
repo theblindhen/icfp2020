@@ -195,11 +195,11 @@ impl Overlay {
         Overlay {screens, width, height, xstart, ystart}
     }
 
-    fn width(&self) -> u32 {
+    pub fn width(&self) -> u32 {
         self.width
     }
 
-    fn height(&self) -> u32 {
+    pub fn height(&self) -> u32 {
         self.height
     }
 
@@ -208,14 +208,7 @@ impl Overlay {
         self.screens[i].at_global(x, y)
     }
 
-    pub fn dump_image(&self, file_name: &str) {
-        let w = std::fs::File::create(file_name).unwrap();
-        let w = std::io::BufWriter::new(w);
-        let mut encoder = png::Encoder::new(w, self.width(), self.height());
-        encoder.set_color(png::ColorType::RGBA);
-        encoder.set_depth(png::BitDepth::Eight);
-        let mut w = encoder.write_header().unwrap();
-
+    pub fn as_rgba(&self) -> Vec<u8> {
         let width = self.width() as usize;
         let height = self.height() as usize;
         let mut data = vec![0u8; 4*width * height];
@@ -238,6 +231,18 @@ impl Overlay {
                 data[ptr+3] = color.3;
             }
         }
+        data
+    }   
+
+    pub fn dump_image(&self, file_name: &str) {
+        let w = std::fs::File::create(file_name).unwrap();
+        let w = std::io::BufWriter::new(w);
+        let mut encoder = png::Encoder::new(w, self.width(), self.height());
+        encoder.set_color(png::ColorType::RGBA);
+        encoder.set_depth(png::BitDepth::Eight);
+        let mut w = encoder.write_header().unwrap();
+
+        let data = self.as_rgba();
         w.write_image_data(&data).unwrap();
     }   
 }
