@@ -222,7 +222,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
     match ai_str {
         Some(ai_str) => match ai_str.as_ref() {
             "stationary" => Some(Box::from(Stationary {})),
-            "noop" => Some(Box::from(Stationary {})),
+            "noop" => Some(Box::from(Noop {})),
             _ => {
                 println!("unknown ai {}, using default", ai_str);
                 Some(Box::from(Stationary {}))
