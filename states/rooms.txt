@@ -6,7 +6,8 @@ cargo run -- --gui 3 -p galaxy --state
 1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000
 2>&1 | tee ui_output
 
-2. Click the Galaxy to the right, and select player by clicking a Galaxy above or below
+2. Click the Galaxy to the right, and select player by clicking a Galaxy above
+   (play as Defender) or below (play as Attacker)
 
 3. Go to another shell.
    If you you clicked player above, run

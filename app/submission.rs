@@ -159,6 +159,7 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
     game_response = try_parse_response(&post(&url, &ai.start(player_key, game_response))?);
 
     loop {
+        println!("Game response was:\n{:?}\ny", game_response);
         let cmds = match game_response {
             None => vec![],
             Some(game_response) => ai.step(game_response),

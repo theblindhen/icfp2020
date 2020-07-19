@@ -10,9 +10,18 @@ type ShipId = i64;
 
 // Param1 = Fuel
 // Param2 = Cannon power
-// Param3 = ???
+// Param3 = Cooling
 // Param4 = ???
 const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
+
+// OBSERVATIONS ON PHYSICS
+//
+// HEAT AND COOLING:
+//  - When a 1-thrust is made it generates 8 heat which is added to the ship's heat value
+//  - The resource "cooling" is subtracted from the heat generation
+//  - If 8-cooling < 0 then the ship is cooled down.
+//  - Heat-capacity is 64 (perhaps = StaticGameInfo.static_unk2)
+//  - If ship's heat would exceed capacity, as much fuel is burned to compensate (active cooling)
 
 
 // OBSERVATIONS ON COMMANDS
@@ -54,6 +63,8 @@ pub struct StaticGameInfo {
     pub role: Role,
     pub max_resources: i64,
     pub opponent_resources: Option<Resources>,
+    pub static_unk1: ValueTree,
+    pub static_unk2: ValueTree,  // = 64 = Heat capacity?
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -69,11 +80,17 @@ pub struct Ship {
     pub position: (i64, i64),
     pub velocity: (i64, i64),
     pub resources: Option<Resources>,
+    pub heat: i64,
+    pub ship_unk2: ValueTree,
+    pub ship_unk3: ValueTree,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Resources {
     pub fuel: i64,
+    pub cannon: i64,
+    pub cooling: i64,
+    pub param4: i64,
 }
 
 pub enum Command {
@@ -159,6 +176,8 @@ fn parse_static_game_info(tree: &ValueTree) -> Result<Option<StaticGameInfo>, Bo
                 game_radius: game_radius,
                 role: parse_role(response[1])?,
                 max_resources: as_int("max resources", inner_list[0])?,
+                static_unk1: inner_list[1].clone(),
+                static_unk2: inner_list[2].clone(),
                 opponent_resources: parse_resources(response[4])?,
             }))
         }
@@ -218,6 +237,9 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
                 position: parse_tuple(ship[2])?,
                 velocity: parse_tuple(ship[3])?,
                 resources: parse_resources(ship[4])?,
+                heat: as_int("heat", ship[5])?,
+                ship_unk2: ship[6].clone(),
+                ship_unk3: ship[7].clone(), //FIXME: Talk borrow-checker into avoiding clone()
             })
         }
     }
@@ -233,6 +255,9 @@ fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::e
     } else {
         Ok(Some(Resources {
             fuel: as_int("fuel", response[0])?,
+            cannon: as_int("cannon", response[1])?,
+            cooling: as_int("cooling", response[2])?,
+            param4: as_int("param4", response[3])?,
         }))
     }
 }
