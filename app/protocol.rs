@@ -248,6 +248,10 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     }
 }
 
+pub fn get_max_resources(game_response: Option<GameResponse>) -> Option<i64> {
+    game_response.and_then(|x| x.static_game_info.and_then(|y| Some(y.max_resources)))
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
