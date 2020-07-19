@@ -14,17 +14,30 @@ type ShipId = i64;
 // Param4 = Clones
 pub const PARAM_MULT : (i64, i64, i64, i64) = (1, 4, 12, 2);
 
-// OBSERVATIONS ON PHYSICS
+// OBSERVATIONS ON GAME MECHANICS
 //
 // HEAT AND COOLING:
 //  - When a 1-thrust is made it generates 8 heat which is added to the ship's heat value
 //  - The resource "cooling" is subtracted from the heat generation
 //  - If 8-cooling < 0 then the ship is cooled down.
 //  - Heat-capacity is 64 (perhaps = StaticGameInfo.static_unk2)
-//  - If ship's heat would exceed capacity, as much fuel is burned to compensate (active cooling)
+//  - If ship's heat would exceed capacity, as much fuel is consumed to compensate (active cooling)
+//  - If there is no more fuel, other resources are consumed. They seem to burn
+//    with a *smaller* multiplier than they cost at game setup.
 //  - When the ship shoots, heat is added according to the cannon power
 //  - When the ship is hit, heat is added acording to distance from the shooter and the shooter's cannon power
 //      (we still don't know the precise function of this heat)
+//
+//
+// SHOOTING:
+//  - Damage (heat) dealt by our ship's gun is returned in the POST Response.
+//  - The damage may be somewhat stochastic (but has also been observed to be stable with distance and cannon power)
+//  - The damage decreases roughly inversely with the square of the Manhattan distance
+//  - The damage increases roughly with the square of the cannon power (NOT linearly!)
+//  - There seems to be a chance that a perfect shot will miss.
+//        The probability seems to increase rapidly with distance, and decrease rapidly with cannon power.
+//  - These observations mean that focusing all firepower in one ship is probably best, 
+//    as long as we are unable to move correctly so that clones get very close to the enemy.
 
 
 // OBSERVATIONS ON COMMANDS
@@ -109,6 +122,7 @@ pub struct Ship {
     pub heat: i64,
     pub ship_unk2: ValueTree,
     pub ship_unk3: ValueTree,
+    pub last_cmds: Vec<LastCommand>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -120,9 +134,38 @@ pub struct Resources {
 }
 
 pub enum Command {
-    Accelerate(ShipId, (i64, i64)),
+    Accelerate(ShipId, (i64, i64)), //Should have been called Thrust
     Detonate(ShipId),
     Shoot(ShipId, (i64, i64), i64),
+    Clone {
+        ship_id : ShipId,
+        fuel : i64,
+        cannon: i64,
+        cooling: i64,
+        clones: i64,
+    }
+}
+
+// Type for holding responses to commands from Organizers
+#[derive(Debug, PartialEq, Eq)]
+pub enum LastCommand {
+    Accelerate((i64, i64)), //Should have been called Thrust
+    Detonate {
+        damage : i64,
+        unknown : i64,
+    },
+    Shoot {
+        target : (i64, i64),
+        power : i64,
+        damage : i64,
+        unknown: i64,  // TODO: Always = 4?
+    },
+    Clone {
+        fuel : i64,
+        cannon: i64,
+        cooling: i64,
+        clones: i64,
+    },
 }
 
 pub fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
@@ -266,10 +309,63 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
                 heat: as_int("heat", ship[5])?,
                 ship_unk2: ship[6].clone(),
                 ship_unk3: ship[7].clone(), //FIXME: Talk borrow-checker into avoiding clone()
+                last_cmds: parse_last_commands(&response[1])?,
             })
         }
     }
 }
+
+fn parse_last_commands(tree: &ValueTree) -> Result<Vec<LastCommand>, Box<dyn std::error::Error>> {
+    let mut cmds = vec![];
+    for cmd in to_native_list(&tree) {
+        match parse_last_command(cmd)? {
+            None => (),
+            Some(cmd) => cmds.push(cmd),
+        }
+    }
+    Ok(cmds)
+}
+
+fn parse_last_command(tree: &ValueTree) -> Result<Option<LastCommand>, Box<dyn std::error::Error>> {
+    let response = to_native_list(&tree);
+    if response.len() == 0 {
+        Err(Box::from("an empty last command in the list of last commands"))
+    } else {
+        match as_int("last cmd code", response[0])? {
+            0 => {
+                Ok(Some(LastCommand::Accelerate(parse_tuple(response[1])?)))
+            },
+            1 => {
+                Ok(Some(LastCommand::Detonate {
+                    damage:  as_int("damage", response[1])?,
+                    unknown: as_int("last cmd unk", response[2])?,
+                }))
+            },
+            2 => {
+                Ok(Some(LastCommand::Shoot {
+                    target : parse_tuple(response[1])?,
+                    power : as_int("power", response[2])?,
+                    damage : as_int("damage", response[3])?,
+                    unknown: as_int("shoot unk", response[4])?,
+                }))
+            },
+            3 => {
+                let resources = to_native_list(&response[1]);
+                Ok(Some(LastCommand::Clone {
+                    fuel : as_int("lc_fuel", &resources[0])?,
+                    cannon: as_int("lc_cannon", &resources[1])?,
+                    cooling: as_int("lc_cooling", &resources[2])?,
+                    clones: as_int("lc_clones", &resources[3])?,
+                }))
+            },
+            _ => {
+                error!["encountered LastCommand which was not understood"];
+                Ok(None)
+            }
+        }
+    }
+}
+
 
 fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::error::Error>> {
     let response = to_native_list(&tree);
@@ -295,7 +391,10 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     match cmd {
         Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({}, {})]", id, vx, vy)),
         Detonate(id) => parse(&format!("[1, {}]", id)),
-        Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity))
+        Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity)),
+        Clone{ ship_id, fuel, cannon, cooling, clones } =>
+            parse(&format!("[3, {}, [{}, {}, {}, {}]", ship_id, fuel, cannon, cooling, clones )),
+ 
     }
 }
 
