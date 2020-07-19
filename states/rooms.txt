@@ -1,14 +1,29 @@
 STARTING THE MULTI-PLAYER GAME
 ----------------------
 
-UI:
+UI to play as Player 0:
+cargo run -- -p galaxy --state
+1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000
+--steps '(45,0) (45,19)'
+
+UI to play as Player 1:
 cargo run -- -p galaxy --state 1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000 --steps '(45,0) (45,-19)'
 
-AI with proxy:
-cargo run -- --proxy https://icfpc2020-api.testkontur.ru <player_key>
 
-AI interactively with proxy:
-cargo run -- --interactive --proxy https://icfpc2020-api.testkontur.ru <player_key>
+Look for the following debug output :
+    Received POST response:
+    [1, [[0, <bignumber>], [1, <bignumber>]]]
+
+Copy the number for the non-UI player as <player_key> into either of the following AI command lines:
+
+    AI with proxy:
+    cargo run -- --proxy https://icfpc2020-api.testkontur.ru <player_key>
+
+    AI interactively with proxy:
+    cargo run -- --interactive --proxy https://icfpc2020-api.testkontur.ru <player_key>
+
+Then type the following into the UI to start the game:
+205 3
 
 
 ROOMS
