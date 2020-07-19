@@ -122,6 +122,7 @@ pub struct Ship {
     pub heat: i64,
     pub ship_unk2: ValueTree,
     pub ship_unk3: ValueTree,
+    pub last_cmds: Vec<LastCommand>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -133,9 +134,38 @@ pub struct Resources {
 }
 
 pub enum Command {
-    Accelerate(ShipId, (i64, i64)),
+    Accelerate(ShipId, (i64, i64)), //Should have been called Thrust
     Detonate(ShipId),
     Shoot(ShipId, (i64, i64), i64),
+    Clone {
+        ship_id : ShipId,
+        fuel : i64,
+        cannon: i64,
+        cooling: i64,
+        clones: i64,
+    }
+}
+
+// Type for holding responses to commands from Organizers
+#[derive(Debug, PartialEq, Eq)]
+pub enum LastCommand {
+    Accelerate((i64, i64)), //Should have been called Thrust
+    Detonate {
+        damage : i64,
+        unknown : i64,
+    },
+    Shoot {
+        target : (i64, i64),
+        power : i64,
+        damage : i64,
+        unknown: i64,  // TODO: Always = 4?
+    },
+    Clone {
+        fuel : i64,
+        cannon: i64,
+        cooling: i64,
+        clones: i64,
+    },
 }
 
 pub fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
@@ -279,10 +309,63 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
                 heat: as_int("heat", ship[5])?,
                 ship_unk2: ship[6].clone(),
                 ship_unk3: ship[7].clone(), //FIXME: Talk borrow-checker into avoiding clone()
+                last_cmds: parse_last_commands(&response[1])?,
             })
         }
     }
 }
+
+fn parse_last_commands(tree: &ValueTree) -> Result<Vec<LastCommand>, Box<dyn std::error::Error>> {
+    let mut cmds = vec![];
+    for cmd in to_native_list(&tree) {
+        match parse_last_command(cmd)? {
+            None => (),
+            Some(cmd) => cmds.push(cmd),
+        }
+    }
+    Ok(cmds)
+}
+
+fn parse_last_command(tree: &ValueTree) -> Result<Option<LastCommand>, Box<dyn std::error::Error>> {
+    let response = to_native_list(&tree);
+    if response.len() == 0 {
+        Err(Box::from("an empty last command in the list of last commands"))
+    } else {
+        match as_int("last cmd code", response[0])? {
+            0 => {
+                Ok(Some(LastCommand::Accelerate(parse_tuple(response[1])?)))
+            },
+            1 => {
+                Ok(Some(LastCommand::Detonate {
+                    damage:  as_int("damage", response[1])?,
+                    unknown: as_int("last cmd unk", response[2])?,
+                }))
+            },
+            2 => {
+                Ok(Some(LastCommand::Shoot {
+                    target : parse_tuple(response[1])?,
+                    power : as_int("power", response[2])?,
+                    damage : as_int("damage", response[3])?,
+                    unknown: as_int("shoot unk", response[4])?,
+                }))
+            },
+            3 => {
+                let resources = to_native_list(&response[1]);
+                Ok(Some(LastCommand::Clone {
+                    fuel : as_int("lc_fuel", &resources[0])?,
+                    cannon: as_int("lc_cannon", &resources[1])?,
+                    cooling: as_int("lc_cooling", &resources[2])?,
+                    clones: as_int("lc_clones", &resources[3])?,
+                }))
+            },
+            _ => {
+                error!["encountered LastCommand which was not understood"];
+                Ok(None)
+            }
+        }
+    }
+}
+
 
 fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::error::Error>> {
     let response = to_native_list(&tree);
@@ -308,7 +391,10 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     match cmd {
         Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({}, {})]", id, vx, vy)),
         Detonate(id) => parse(&format!("[1, {}]", id)),
-        Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity))
+        Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity)),
+        Clone{ ship_id, fuel, cannon, cooling, clones } =>
+            parse(&format!("[3, {}, [{}, {}, {}, {}]", ship_id, fuel, cannon, cooling, clones )),
+ 
     }
 }
 
