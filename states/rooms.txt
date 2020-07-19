@@ -1,34 +1,25 @@
-STARTING THE MULTI-PLAYER GAME
+STARTING THE MULTI-PLAYER GAME IN GUI
 ----------------------
 
-UI to play as Player 0:
-cargo run -- -p galaxy --state
+1. Run UI:
+cargo run -- --gui 3 -p galaxy --state
 1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000
---steps '(45,0) (45,19)'
+2>&1 | tee ui_output
 
-UI to play as Player 1:
-cargo run -- -p galaxy --state 1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000 --steps '(45,0) (45,-19)'
+2. Click the Galaxy to the right, and select player by clicking a Galaxy above or below
+
+3. Go to another shell.
+   If you you clicked player above, run
+     ./run_ai.sh 0
+   Otherwise, run
+     ./run_ai.sh 1
+
+4. Click on the green numbers in front of your player to select resources.
+
+5. Click the Galaxy to start the game
 
 
-Look for the following debug output :
-    Received POST response:
-    [1, [[0, <bignumber>], [1, <bignumber>]]]
 
-Copy the number for the non-UI player as <player_key> into either of the following AI command lines:
-
-    AI with proxy:
-    cargo run -- --proxy https://icfpc2020-api.testkontur.ru <player_key>
-
-    AI interactively with proxy:
-    cargo run -- --interactive --proxy https://icfpc2020-api.testkontur.ru <player_key>
-
-Then type the following into the UI to start the game:
-
-UI is Player 0:
-    205 40
-
-UI is Player 1:
-    205 3
 
 ROOMS
 ----------------------
