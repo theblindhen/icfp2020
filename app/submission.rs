@@ -204,8 +204,7 @@ impl AI for Orbiting {
             let (mut xmin, mut xmax) = (sv.s.x, sv.s.x);
             let (mut ymin, mut ymax) = (sv.s.y, sv.s.y);
             for pos in sv.one_orbit_positions(planet_radius, 256) {
-                if sim::dist_to_planet(planet_radius, pos) <= 0 {
-                    // Crashed into the planet
+                if sim::collided_with_planet(planet_radius, pos) {
                     return (xmax - xmin) + (ymax - ymin)
                 }
                 xmin = xmin.min(pos.x);
