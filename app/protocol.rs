@@ -242,7 +242,7 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     use crate::submission::*;
 
     match cmd {
-        Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({},{})]", id, vx, vy)),
+        Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({}, {})]", id, vx, vy)),
         Detonate(id) => parse(&format!("[1, {}]", id)),
         Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity))
     }
