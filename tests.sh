@@ -2,4 +2,4 @@
 
 # This is the entry point when running CI tests inside the Docker image.
 
-cargo test
+cargo test --no-default-features
