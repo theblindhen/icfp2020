@@ -256,16 +256,14 @@ impl AI for Orbiting {
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
         /// std::i64::MAX if it doesn't crash
         fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
-            let (mut xmin, mut xmax) = (sv.s.x, sv.s.x);
-            let (mut ymin, mut ymax) = (sv.s.y, sv.s.y);
+            let mut last_pos = sv.s;
+            let mut dist_sum = 0;
             for pos in sv.one_orbit_positions(planet_radius, 256) {
                 if sim::collided_with_planet(planet_radius, pos) {
-                    return (xmax - xmin) + (ymax - ymin);
+                    return dist_sum;
                 }
-                xmin = xmin.min(pos.x);
-                xmax = xmax.max(pos.x);
-                ymin = ymin.min(pos.y);
-                ymax = ymax.max(pos.y);
+                dist_sum += sim::manhattan(pos, last_pos);
+                last_pos = pos;
             }
             std::i64::MAX
         }
@@ -385,8 +383,8 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
             "noop" => Some(Box::from(Noop {})),
             "shoot" => Some(Box::from(Shoot {})),
             _ => {
-                println!("unknown ai {}, using default", ai_str);
-                Some(Box::from(Shoot {}))
+                println!("unknown ai {}, using noop", ai_str);
+                Some(Box::from(Noop {}))
             }
         },
         None => None,
@@ -415,7 +413,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Shoot {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {

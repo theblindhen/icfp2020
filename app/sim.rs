@@ -44,6 +44,10 @@ impl SV {
     }
 }
 
+pub fn manhattan(pos1: XY, pos2: XY) -> i64 {
+    (pos2.x - pos1.x).abs() + (pos2.y - pos1.y).abs()
+}
+
 pub fn collided_with_planet(planet_radius: i64, pos: XY) -> bool {
     let absx = pos.x.abs();
     let absy = pos.y.abs();
