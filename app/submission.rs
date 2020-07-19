@@ -8,8 +8,7 @@ use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
 
-
-fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error::Error>> {
+fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
 
     println!("Sending: {}", body);
@@ -33,7 +32,7 @@ fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error:
 
     println!("Received: {}", decoded_response);
 
-    Ok(parse_game_response(&decoded_response)?)
+    Ok(decoded_response)
 }
 
 pub fn parse(tree: &str) -> ValueTree {
@@ -77,32 +76,51 @@ fn gravity((x, y): (i64, i64)) -> (i64, i64) {
     }
 }
 
-fn decide_command(game_response: GameResponse) -> Vec<Command> {
-    match (game_response.static_game_info, game_response.game_state) {
-        (Some(static_game_info), Some(game_state)) => {
-            let our_role = static_game_info.role;
-            let our_ship = game_state
-                .ships
-                .iter()
-                .find(|&ship| ship.role == our_role)
-                .unwrap();
+fn decide_command(game_response: Option<GameResponse>) -> Vec<Command> {
+    match game_response {
+        Some(game_response) => match (game_response.static_game_info, game_response.game_state) {
+            (Some(static_game_info), Some(game_state)) => {
+                let our_role = static_game_info.role;
+                let our_ship = game_state
+                    .ships
+                    .iter()
+                    .find(|&ship| ship.role == our_role)
+                    .unwrap();
 
-            let (gx, gy) = gravity(our_ship.position);
+                let (gx, gy) = gravity(our_ship.position);
 
-            vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
+                vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
+            }
+            _ => vec![],
+        },
+        None => vec![],
+    }
+}
+
+fn dummy_ai(url: &str, player_key: i64) {
+    loop {}
+}
+
+fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
+    use crate::protocol::*;
+
+    match parse_game_response(&response) {
+        Ok(res) => Some(res),
+        Err(err) => {
+            println!("could not parse game response: {}", err);
+            None
         }
-        _ => vec![],
     }
 }
 
 fn run_ai(
     url: &str,
     player_key: i64,
-    initial_game_response: GameResponse,
+    initial_game_response: ValueTree,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
-    let mut game_response = post(&url, &start_msg(player_key))?;
+    let mut game_response = try_parse_response(&post(&url, &start_msg(player_key))?);
 
     loop {
         let mut commands = vnil();
@@ -112,7 +130,7 @@ fn run_ai(
 
         let request = vcons(vi64(4), vcons(vi64(player_key), vcons(commands, vnil())));
 
-        game_response = post(url, &request)?;
+        game_response = try_parse_response(&post(url, &request)?);
     }
 }
 
