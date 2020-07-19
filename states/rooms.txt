@@ -110,3 +110,15 @@ Type image coordinates, separated by a space (i.e. as given in an image viewer)
 ROUND 17
 State
 110110001011110110000111101000010011010110000
+
+
+
+
+
+----------------------
+
+Start multi-player game
+
+UI: cargo run -- -p galaxy --state 1101100101111101100011110101100110011001100111101110001001000101101111101011101111000001001101101001110000 --steps '(45,0) (45,-19)'
+
+AI: cargo run --bin submission -- https://icfpc2020-api.testkontur.ru <player_key> 91bf0ff907084b7595841e534276a415
