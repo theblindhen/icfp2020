@@ -1,8 +1,8 @@
 use crate::encodings::{demodulate, modulate, vcons, vi64, vnil};
 use crate::interpreter::*;
 use crate::protocol::*;
-use crate::value_tree::*;
 use crate::sim;
+use crate::value_tree::*;
 use log::*;
 use std::convert::TryInto;
 use std::env;
@@ -16,9 +16,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
     println!("Sending:  {}", body);
 
     loop {
-        let response = ureq::post(url)
-            .send_string(&encoded_body)
-            .into_string();
+        let response = ureq::post(url).send_string(&encoded_body).into_string();
         match response {
             Ok(response) => {
                 if (response == "") {
@@ -119,7 +117,15 @@ struct Orbiting {}
 
 impl AI for Stationary {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
-        start_msg(player_key, game_response)
+        use crate::protocol::*;
+
+        match get_max_resources(game_response) {
+            Some(max_resources) => {
+                let cooling = (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
+            }
+            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+        }
     }
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
@@ -205,7 +211,7 @@ impl AI for Orbiting {
             let (mut ymin, mut ymax) = (sv.s.y, sv.s.y);
             for pos in sv.one_orbit_positions(planet_radius, 256) {
                 if sim::collided_with_planet(planet_radius, pos) {
-                    return (xmax - xmin) + (ymax - ymin)
+                    return (xmax - xmin) + (ymax - ymin);
                 }
                 xmin = xmin.min(pos.x);
                 xmax = xmax.max(pos.x);
@@ -232,7 +238,8 @@ impl AI for Orbiting {
                 for &thrust in &sim::NONZERO_THRUSTS {
                     let mut thrusted_sv = sv.clone();
                     thrusted_sv.thrust(thrust);
-                    let measure = goodness_of_drift_from(&thrusted_sv, static_game_info.planet_radius);
+                    let measure =
+                        goodness_of_drift_from(&thrusted_sv, static_game_info.planet_radius);
                     if measure > best_measure {
                         best_measure = measure;
                         best_thrust = thrust;
@@ -243,7 +250,6 @@ impl AI for Orbiting {
                 } else {
                     vec![Command::Accelerate(our_ship.ship_id, best_thrust.into())]
                 }
-
             }
             _ => {
                 error!("Error in survivor ai: no static game info or game state");

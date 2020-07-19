@@ -12,7 +12,7 @@ type ShipId = i64;
 // Param2 = Cannon power
 // Param3 = Cooling
 // Param4 = Clones
-const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
+pub const PARAM_MULT : (i64, i64, i64, i64) = (1, 4, 12, 2);
 
 // OBSERVATIONS ON PHYSICS
 //
