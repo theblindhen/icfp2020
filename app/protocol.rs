@@ -8,6 +8,24 @@ use crate::submission::*;
 
 type ShipId = i64;
 
+// Param1 = Fuel
+// Param2 = Cannon power
+// Param3 = ???
+// Param4 = ???
+const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
+
+
+// OBSERVATIONS ON COMMANDS
+
+// Shoot:
+// (2, shipId, target, cannon-power?)
+
+
+
+// OBSERVATIONS ON POST RESPONSES
+// [1, 1, [256, 0, [512, 1, 64], [16, 128], [1, 1, 1, 1]], [1, [16, 128], [[[1, 0, (47, -33), (-1, 0), [1, 1, 1, 1], 0, 64, 1], []], [[0, 1, (-47, 33), (1, 0), [254, 64, 0, 1], 64, 64, 1], [[2, (47, -33), 64, 0, 4]]]]]]
+//                                                                                                                                                                                X Ammo used (shots * strength)
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum GameStage {
     NotStarted,
