@@ -96,17 +96,17 @@ mod test {
         assert_eq!(word("ap"), Ok(("", WAp)));
         assert_eq!(word("cons"), Ok(("", WT(Cons))));
         assert_eq!(word("nil"), Ok(("", WT(Nil))));
-        assert_eq!(word("123"), Ok(("", WT(Int(123)))));
-        assert_eq!(word("-111"), Ok(("", WT(Int(-111)))));
-        assert_eq!(word("560803991675135"), Ok(("", WT(Int(560803991675135)))));
+        assert_eq!(word("123"), Ok(("", WT(Int(123.into())))));
+        assert_eq!(word("-111"), Ok(("", WT(Int((-111).into())))));
+        assert_eq!(word("560803991675135"), Ok(("", WT(Int(560803991675135i64.into())))));
     }
 
     #[test]
     fn test_assignment() {
-        assert_eq!(assignment(":1 = 2"), Ok(("", (Var(1), vec![WT(Int(2))]))));
+        assert_eq!(assignment(":1 = 2"), Ok(("", (Var(1), vec![WT(Int(2.into()))]))));
         assert_eq!(
             assignment("galaxy = 42"),
-            Ok(("", (Var(-1), vec![WT(Int(42))])))
+            Ok(("", (Var(-1), vec![WT(Int(42.into()))])))
         );
         assert_eq!(
             assignment(":2 = ap i :1"),
@@ -122,11 +122,11 @@ mod test {
                         WAp,
                         WAp,
                         WT(Cons),
-                        WT(Int(2)),
+                        WT(Int(2.into())),
                         WAp,
                         WAp,
                         WT(Cons),
-                        WT(Int(7)),
+                        WT(Int(7.into())),
                         WT(Nil),
                     ]
                 )

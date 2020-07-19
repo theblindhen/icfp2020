@@ -8,7 +8,7 @@ pub enum Token {
     // Constants
     True,
     False,
-    Int(i64), //TODO: BigInt?
+    Int(num_bigint::BigInt),
     V(Var),
     // Unary operators
     Inc,
@@ -117,5 +117,9 @@ pub fn cons(head: ApTree, tail: ApTree) -> ApTree {
 }
 
 pub fn int(val: i64) -> ApTree {
+    return ApTree::T(Token::Int(val.into()));
+}
+
+pub fn bigint(val: num_bigint::BigInt) -> ApTree {
     return ApTree::T(Token::Int(val));
 }

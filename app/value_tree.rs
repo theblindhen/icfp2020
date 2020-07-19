@@ -6,7 +6,7 @@ use crate::nom_helpers::*;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ValueTree {
     VNil,
-    VInt(i64),
+    VInt(num_bigint::BigInt),
     VCons(Box<(ValueTree, ValueTree)>),
 }
 
@@ -51,7 +51,7 @@ impl From<&ValueTree> for ApTree {
         match t {
             ValueTree::VNil => T(Token::Nil),
             ValueTree::VCons(pair) => Ap(Box::new((Ap(Box::new((T(Token::Cons), (&pair.as_ref().0).into()))), (&pair.as_ref().1).into()))),
-            ValueTree::VInt(i) => T(Token::Int(*i)),
+            ValueTree::VInt(i) => T(Token::Int(i.clone())),
         }
     }
 }
