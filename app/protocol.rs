@@ -14,17 +14,30 @@ type ShipId = i64;
 // Param4 = Clones
 const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
 
-// OBSERVATIONS ON PHYSICS
+// OBSERVATIONS ON GAME MECHANICS
 //
 // HEAT AND COOLING:
 //  - When a 1-thrust is made it generates 8 heat which is added to the ship's heat value
 //  - The resource "cooling" is subtracted from the heat generation
 //  - If 8-cooling < 0 then the ship is cooled down.
 //  - Heat-capacity is 64 (perhaps = StaticGameInfo.static_unk2)
-//  - If ship's heat would exceed capacity, as much fuel is burned to compensate (active cooling)
+//  - If ship's heat would exceed capacity, as much fuel is consumed to compensate (active cooling)
+//  - If there is no more fuel, other resources are consumed. They seem to burn
+//    with a *smaller* multiplier than they cost at game setup.
 //  - When the ship shoots, heat is added according to the cannon power
 //  - When the ship is hit, heat is added acording to distance from the shooter and the shooter's cannon power
 //      (we still don't know the precise function of this heat)
+//
+//
+// SHOOTING:
+//  - Damage (heat) dealt by our ship's gun is returned in the POST Response.
+//  - The damage may be somewhat stochastic (but has also been observed to be stable with distance and cannon power)
+//  - The damage decreases roughly inversely with the square of the Manhattan distance
+//  - The damage increases roughly with the square of the cannon power (NOT linearly!)
+//  - There seems to be a chance that a perfect shot will miss.
+//        The probability seems to increase rapidly with distance, and decrease rapidly with cannon power.
+//  - These observations mean that focusing all firepower in one ship is probably best, 
+//    as long as we are unable to move correctly so that clones get very close to the enemy.
 
 
 // OBSERVATIONS ON COMMANDS
