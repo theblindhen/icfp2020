@@ -13,26 +13,35 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 
     println!("Sending: {}", body);
 
-    let response = ureq::post(url)
-        .timeout(std::time::Duration::from_secs(30))
-        .send_string(&encoded_body)
-        .into_string()?;
+    loop {
+        let response =
+            ureq::post(url)
+            .timeout(std::time::Duration::from_secs(30))
+            .send_string(&encoded_body)
+            .into_string();
+        match response {
+            Ok(response) => {
+                if (response == "") {
+                    panic!("received empty response from server");
+                }
 
-    if (response == "") {
-        panic!("received empty response from server");
+                let (decoded_response, remainder) = demodulate(&response);
+                if (remainder != "") {
+                    panic!(
+                        "non-empty remainder when demodulating server response: {}",
+                        response
+                    );
+                }
+
+                println!("Received: {}", decoded_response);
+
+                return Ok(decoded_response);
+            },
+            Err(e) => {
+                error!("Error communicating with server:\n\t{}\nTrying again", e)
+            }
+        }
     }
-
-    let (decoded_response, remainder) = demodulate(&response);
-    if (remainder != "") {
-        panic!(
-            "non-empty remainder when demodulating server response: {}",
-            response
-        );
-    }
-
-    println!("Received: {}", decoded_response);
-
-    Ok(decoded_response)
 }
 
 pub fn parse(tree: &str) -> ValueTree {
@@ -43,8 +52,13 @@ fn join_msg(player_key: i64) -> ValueTree {
     parse(&format!("[2, {}, []]", player_key))
 }
 
-fn start_msg(player_key: i64) -> ValueTree {
-    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+    match get_max_resources(game_response) {
+        Some(max_resources) => {
+            parse(&format!("[3, {}, [{}, 0, 1, 1]]", player_key, max_resources-2-12))
+        },
+        None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+    }
 }
 
 fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
@@ -76,29 +90,30 @@ fn gravity((x, y): (i64, i64)) -> (i64, i64) {
     }
 }
 
-fn decide_command(game_response: Option<GameResponse>) -> Vec<Command> {
-    match game_response {
-        Some(game_response) => match (game_response.static_game_info, game_response.game_state) {
-            (Some(static_game_info), Some(game_state)) => {
-                let our_role = static_game_info.role;
-                let our_ship = game_state
-                    .ships
-                    .iter()
-                    .find(|&ship| ship.role == our_role)
-                    .unwrap();
+fn ai_stationary(game_response: GameResponse) -> Vec<Command> {
+    match (game_response.static_game_info, game_response.game_state) {
+        (Some(static_game_info), Some(game_state)) => {
+            let our_role = static_game_info.role;
+            let our_ship = game_state
+                .ships
+                .iter()
+                .find(|&ship| ship.role == our_role)
+                .unwrap();
 
-                let (gx, gy) = gravity(our_ship.position);
+            let (gx, gy) = gravity(our_ship.position);
 
-                vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
-            }
-            _ => vec![],
+            vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
         },
-        None => vec![],
+        _ => {
+            error!("Error in survivor ai: no static game info or game state");
+            ai_noop()
+        }
     }
 }
 
-fn dummy_ai(url: &str, player_key: i64) {
-    loop {}
+
+fn ai_noop() -> Vec<Command> {
+    vec![]
 }
 
 fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
@@ -114,17 +129,30 @@ fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
 }
 
 fn run_ai(
+    ai: &str,
     url: &str,
     player_key: i64,
     initial_game_response: ValueTree,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
-    let mut game_response = try_parse_response(&post(&url, &start_msg(player_key))?);
+    let mut game_response = try_parse_response(&initial_game_response);
+    game_response = try_parse_response(&post(&url, &start_msg(player_key, game_response))?);
 
     loop {
+        let cmds = 
+            match game_response {
+                None => ai_noop(),
+                Some(game_response) => {
+                    match ai {
+                        "stationary" => ai_stationary(game_response),
+                        "noop" => ai_noop(),
+                        _ => ai_noop(),
+                    }
+                }
+            };
         let mut commands = vnil();
-        for cmd in decide_command(game_response) {
+        for cmd in cmds {
             commands = vcons(flatten_command(cmd), commands);
         }
 
@@ -137,10 +165,10 @@ fn run_ai(
 pub fn main(
     server_url: &str,
     player_key: &str,
+    ai: &str,
     proxy: bool,
     interactive: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
 
     let player_key: i64 = player_key.parse().unwrap();
 
@@ -157,7 +185,7 @@ pub fn main(
     if interactive {
         run_interactively(&url, player_key)?
     } else {
-        run_ai(&url, player_key, initial_game_response)?
+        run_ai(ai, &url, player_key, initial_game_response)?
     }
 
     Ok(())
