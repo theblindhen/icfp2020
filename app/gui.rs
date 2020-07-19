@@ -5,6 +5,8 @@ use crate::aplang::Var;
 use std::cell::RefMut;
 use std::ops::DerefMut;
 
+use log::*;
+
 struct Game {
     prg_var: Var,
     env: Env,
@@ -14,7 +16,7 @@ struct Game {
 
 fn step(g: &mut Game, click: Point) -> crate::draw::Overlay {
     println!("Sent point: ({}, {})", click.0, click.1);
-    println!("State\n{}\n{}", g.state, crate::encodings::modulate(&g.state));
+    trace!("State\n{}\n{}", g.state, crate::encodings::modulate(&g.state));
     let (new_state, screens) = interpreter::interact(g.prg_var, &mut g.env.clone(), &g.state, click);
     let overlay = crate::draw::Overlay::new(screens);
     g.state = new_state;

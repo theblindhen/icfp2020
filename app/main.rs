@@ -23,6 +23,8 @@ use std::fs::File;
 
 use log::*;
 
+const DEFAULT_AI : &'static str = "stationary";
+
 // Struct for command line parsing 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -67,6 +69,9 @@ struct MyOpt {
 
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
+
+    #[structopt(default_value = DEFAULT_AI,long)]
+    ai: String,
 }
 
 // Parenthesised, comma-separated point
@@ -125,8 +130,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // RUN MODE 1: SUBMISSION
     ////////////////////////////////////////
+    let ai =
+        if opt.ai == "stationary" || opt.ai == "noop" {
+            &opt.ai
+        } else {
+            error!("Unknown AI requested '{}'. Using default '{}'", opt.ai, DEFAULT_AI );
+            DEFAULT_AI
+        };
     match &opt.url_and_key[..] {
-        [server_url, player_key] => return submission::main(server_url, player_key, opt.proxy, opt.interactive),
+        [server_url, player_key] =>
+            return submission::main(server_url, player_key, &ai, opt.proxy, opt.interactive),
         [] => (),
         _ => panic!("Bad args"),
     }
@@ -207,8 +220,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("ROUND {}", round);
         let (new_state, screens) = interpreter::interact(prg_var, &mut env.clone(), &state, point);
         let overlay = draw::Overlay::new(screens);
-        println!("State\n{}\n{}", state, encodings::modulate(&state));
-        println!("Sent point: ({}, {})", point.0, point.1);
+        trace!("State\n{}\n{}", state, encodings::modulate(&state));
+        info!("Sent point: ({}, {})", point.0, point.1);
         // println!("Overlays:\n{}", round, overlay);
         // overlay.dump_image()
         overlay.dump_image(&format!("imgs/round_{:03}.png", round));
