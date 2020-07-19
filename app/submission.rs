@@ -8,8 +8,7 @@ use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
 
-
-fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error::Error>> {
+fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
 
     println!("Sending: {}", body);
@@ -36,7 +35,7 @@ fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error:
 
                 println!("Received: {}", decoded_response);
 
-                return parse_game_response(&decoded_response)
+                return Ok(decoded_response);
             },
             Err(e) => {
                 error!("Error communicating with server:\n\t{}\nTrying again", e)
@@ -98,40 +97,72 @@ fn decide_command(game_response: GameResponse) -> Vec<Command> {
 
             let (gx, gy) = gravity(our_ship.position);
 
-            vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
+            vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
+        },
+        _ => {
+            error!("Error in survivor ai: no static game info or game state");
+            ai_noop()
         }
-        _ => vec![],
+    }
+}
+
+
+fn ai_noop() -> Vec<Command> {
+    vec![]
+}
+
+fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
+    use crate::protocol::*;
+
+    match parse_game_response(&response) {
+        Ok(res) => Some(res),
+        Err(err) => {
+            println!("could not parse game response: {}", err);
+            None
+        }
     }
 }
 
 fn run_ai(
+    ai: &str,
     url: &str,
     player_key: i64,
-    initial_game_response: GameResponse,
+    initial_game_response: ValueTree,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
-    let mut game_response = post(&url, &start_msg(player_key))?;
+    let mut game_response = try_parse_response(&post(&url, &start_msg(player_key))?);
 
     loop {
+        let cmds = 
+            match game_response {
+                None => ai_noop(),
+                Some(game_response) => {
+                    match ai {
+                        "survivor" => decide_command(game_response),
+                        "noop" => ai_noop(),
+                        _ => ai_noop(),
+                    }
+                }
+            };
         let mut commands = vnil();
-        for cmd in decide_command(game_response) {
+        for cmd in cmds {
             commands = vcons(flatten_command(cmd), commands);
         }
 
         let request = vcons(vi64(4), vcons(vi64(player_key), vcons(commands, vnil())));
 
-        game_response = post(url, &request)?;
+        game_response = try_parse_response(&post(url, &request)?);
     }
 }
 
 pub fn main(
     server_url: &str,
     player_key: &str,
+    ai: &str,
     proxy: bool,
     interactive: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = env::args().collect();
 
     let player_key: i64 = player_key.parse().unwrap();
 
@@ -148,7 +179,7 @@ pub fn main(
     if interactive {
         run_interactively(&url, player_key)?
     } else {
-        run_ai(&url, player_key, initial_game_response)?
+        run_ai(ai, &url, player_key, initial_game_response)?
     }
 
     Ok(())

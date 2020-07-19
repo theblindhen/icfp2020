@@ -23,6 +23,8 @@ use std::fs::File;
 
 use log::*;
 
+const DEFAULT_AI : &'static str = "survivor";
+
 // Struct for command line parsing 
 #[derive(StructOpt, Debug)]
 #[structopt()]
@@ -63,10 +65,13 @@ struct MyOpt {
     interactive: bool,
 
     #[structopt(long)]
-    gui: bool,
+    gui: Option<i32>,
 
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
+
+    #[structopt(default_value = DEFAULT_AI,long)]
+    ai: String,
 }
 
 // Parenthesised, comma-separated point
@@ -125,8 +130,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // RUN MODE 1: SUBMISSION
     ////////////////////////////////////////
+    let ai =
+        if opt.ai == "survivor" || opt.ai == "noop" {
+            &opt.ai
+        } else {
+            error!("Unknown AI requested '{}'. Using default {}", opt.ai, DEFAULT_AI );
+            DEFAULT_AI
+        };
     match &opt.url_and_key[..] {
-        [server_url, player_key] => return submission::main(server_url, player_key, opt.proxy, opt.interactive),
+        [server_url, player_key] =>
+            return submission::main(server_url, player_key, &ai, opt.proxy, opt.interactive),
         [] => (),
         _ => panic!("Bad args"),
     }
@@ -180,8 +193,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         };
 
-    if opt.gui {
-        return gui::gui(prg_var, env, state)
+    if let Some(scale) = opt.gui {
+        return gui::gui(prg_var, env, state, scale)
     }
 
     let mut round = 0;

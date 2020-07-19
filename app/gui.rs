@@ -23,13 +23,12 @@ fn step(g: &mut Game, click: Point) -> crate::draw::Overlay {
 }
 
 #[cfg(feature = "gui")]
-pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::error::Error>> {
+pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), Box<dyn std::error::Error>> {
     use fltk::{app, button::*, draw::*, frame::*, window::*};
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    let (dim_x, dim_y) = (1920, 1080);
-    let scale: i32 = 4;
+    let (dim_x, dim_y) = (300 * scale, 300 * scale);
 
     let state_rc = Rc::from(RefCell::from(Game { prg_var, env, state, screen_offset: Point(0,0) }));
 
@@ -97,6 +96,6 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::
 }
 
 #[cfg(not(feature = "gui"))]
-pub fn gui(prg_var: Var, env: Env, state: ValueTree) -> Result<(), Box<dyn std::error::Error>> {
+pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), Box<dyn std::error::Error>> {
     panic!("GUI feature not enabled. You've built with `--no-default-features`.")
 }
