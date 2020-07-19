@@ -26,7 +26,7 @@ impl SV {
     }
 
     pub fn thrust(&mut self, direction_unit_vector: XY) {
-        self.v += direction_unit_vector;
+        self.v -= direction_unit_vector;
     }
 
     /// If we crash into the planet, the returned iterator includes the position
