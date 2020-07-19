@@ -201,7 +201,15 @@ impl AI for Shoot {
 
 impl AI for Orbiting {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
-        start_msg(player_key, game_response)
+        use crate::protocol::*;
+
+        match get_max_resources(game_response) {
+            Some(max_resources) => {
+                let cooling = (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
+            }
+            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+        }
     }
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
