@@ -89,7 +89,7 @@ fn decide_command(game_response: Option<GameResponse>) -> Vec<Command> {
 
                 let (gx, gy) = gravity(our_ship.position);
 
-                vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
+                vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
             }
             _ => vec![],
         },
