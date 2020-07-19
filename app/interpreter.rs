@@ -8,6 +8,8 @@ use std::collections::HashMap;
 use std::convert::TryInto;
 use std::iter;
 use std::fmt;
+use num_bigint::BigInt;
+use num_traits::{Zero, Num};
 
 #[derive(Clone)]
 enum VarTree {
@@ -188,8 +190,12 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         }
         Ap3(If0, cond, left, right) => {
             match reduce_left_loop(cond, env) {
-                WorkT(Int(0)) => Step(reduce_left_loop(left, env)),
-                WorkT(Int(1)) => Step(reduce_left_loop(right, env)),
+                WorkT(Int(i)) =>
+                    if i.is_zero() {
+                        Step(reduce_left_loop(left, env))
+                    } else {
+                        Step(reduce_left_loop(right, env))
+                    }
                  _ => panic!("If0 applied illegal conditional")
             }
         }
@@ -296,10 +302,12 @@ pub fn interact(prg_var: Var, env: &mut Env, state: &ValueTree, point: draw::Poi
                     _ => panic!("Not a point"),
                 };
             let (x, y) = match (x, y) {
-                    (ValueTree::VInt(x), ValueTree::VInt(y)) => (*x, *y),
+                    (ValueTree::VInt(x), ValueTree::VInt(y)) => (x, y),
                     _ => panic!("Not ints: ({:?}, {:?})", x, y),
                 };
-            points.push(draw::Point(x, y));
+            if let (Ok(x), Ok(y)) = (x.try_into(), y.try_into()) {
+                points.push(draw::Point(x, y));
+            }
         }
         let screen: draw::Screen = draw::screen_from_list(points);
         screens.push(screen)
@@ -344,7 +352,7 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
                 _ => panic!("interact: no flag"),
             }
         };
-        if flag == 0 {
+        if flag.is_zero() {
             return (new_state, data);
         }
         state = new_state;
@@ -433,24 +441,24 @@ mod test {
     }
 
     pub fn wint(val: i64) -> WorkTree {
-        WorkT(Int(val))
+        WorkT(Int(val.into()))
     }
 
     #[test]
     fn test_pretty_print_and_parse() {
-        use crate::encodings::{vcons, vnil, vint};
+        use crate::encodings::{vcons, vnil, vi64};
         fn check(tree: ValueTree, s: &str) {
             assert_eq!(format!("{}", tree), s);
             assert_eq!(parse_value_tree(s), Some(tree));
         }
         check(vnil(), "[]");
-        check(vcons(vint(1), vnil()), "[1]");
-        check(vcons(vint(1), vcons(vint(2), vnil())), "[1, 2]");
-        check(vcons(vint(1), vint(2)), "(1, 2)");
-        check(vcons(vcons(vint(-12), vnil()), vnil()), "[[-12]]");
-        check(vcons(vnil(), vcons(vint(-12), vnil())), "[[], -12]");
-        check(vcons(vcons(vint(1), vint(2)), vnil()), "[(1, 2)]");
-        check(vcons(vcons(vint(1), vint(2)), vcons(vcons(vint(3), vint(4)), vnil())), "[(1, 2), (3, 4)]");
+        check(vcons(vi64(1), vnil()), "[1]");
+        check(vcons(vi64(1), vcons(vi64(2), vnil())), "[1, 2]");
+        check(vcons(vi64(1), vi64(2)), "(1, 2)");
+        check(vcons(vcons(vi64(-12), vnil()), vnil()), "[[-12]]");
+        check(vcons(vnil(), vcons(vi64(-12), vnil())), "[[], -12]");
+        check(vcons(vcons(vi64(1), vi64(2)), vnil()), "[(1, 2)]");
+        check(vcons(vcons(vi64(1), vi64(2)), vcons(vcons(vi64(3), vi64(4)), vnil())), "[(1, 2), (3, 4)]");
     }
 
     #[test]

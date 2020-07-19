@@ -113,8 +113,8 @@ fn main() {
     trace!("You are reading everything");
 
     if let Some(key) = opt.make_join_message_with_key {
-        use encodings::{vcons, vnil, vint};
-        let join = vcons(vint(2), vcons(vint(key), vcons(vnil(), vnil())));
+        use encodings::{vcons, vnil, vi64};
+        let join = vcons(vi64(2), vcons(vi64(key), vcons(vnil(), vnil())));
         let modulated = encodings::modulate(&join);
         println!("{}", modulated);
         return;

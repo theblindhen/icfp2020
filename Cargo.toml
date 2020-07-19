@@ -23,3 +23,5 @@ env_logger = { version = "0.7.1", default-features = false }
 nom = "5.1"
 fixedbitset = "0.3"
 png = "0.16"
+num-bigint = "0.3"
+num-traits = "0.2.12"

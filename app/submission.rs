@@ -9,7 +9,7 @@ mod interpreter;
 mod lexer;
 mod nom_helpers;
 
-use encodings::{vcons, vint, vnil};
+use encodings::{vcons, vi64, vnil};
 use interpreter::*;
 use value_tree::*;
 use log::*;
@@ -40,18 +40,18 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 }
 
 fn join_msg(player_key: i64) -> ValueTree {
-    vcons(vint(2), vcons(vint(player_key), vcons(vnil(), vnil())))
+    vcons(vi64(2), vcons(vi64(player_key), vcons(vnil(), vnil())))
 }
 
 fn start_msg(player_key: i64) -> ValueTree {
     let initial_params = vcons(
-        vint(1),
-        vcons(vint(1), vcons(vint(1), vcons(vint(1), vnil()))),
+        vi64(1),
+        vcons(vi64(1), vcons(vi64(1), vcons(vi64(1), vnil()))),
     );
 
     vcons(
-        vint(3),
-        vcons(vint(player_key), vcons(initial_params, vnil())),
+        vi64(3),
+        vcons(vi64(player_key), vcons(initial_params, vnil())),
     )
 }
 
