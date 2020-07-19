@@ -1,3 +1,3 @@
 #!/bin/sh
 
-/solution/target/release/submission "$@"
+/solution/target/release/app "$@"
