@@ -30,7 +30,8 @@ pub struct StaticGameInfo {
     planet_radius: i64,
     game_radius: i64,
     role: Role,
-    //max_ship_state: Option<ShipState>,
+    max_resources: i64,
+    suggested_resources: Resources,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -45,7 +46,12 @@ pub struct Ship {
     ship_id: i64,
     position: (i64, i64),
     velocity: (i64, i64),
-    //fuel: i64,
+    resources: Resources,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct Resources {
+    fuel: i64,
 }
 
 fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
@@ -112,12 +118,20 @@ fn parse_static_game_info(tree: &ValueTree) -> Result<StaticGameInfo, Box<dyn st
         Err(Box::from("unexpected structure of static game info"))
     } else {
         let (planet_radius, game_radius) = parse_radius(response[3])?;
-        Ok(StaticGameInfo {
-            max_steps: as_int("steps", response[0])?,
-            planet_radius: planet_radius,
-            game_radius: game_radius,
-            role: parse_role(response[1])?,
-        })
+        let inner_list = to_native_list(&response[2]);
+
+        if (inner_list.len() != 3) {
+            Err(Box::from("unexpected structure of static game info"))
+        } else {
+            Ok(StaticGameInfo {
+                max_steps: as_int("steps", response[0])?,
+                planet_radius: planet_radius,
+                game_radius: game_radius,
+                role: parse_role(response[1])?,
+                max_resources: as_int("max resources", inner_list[0])?,
+                suggested_resources: parse_resources(response[4])?,
+            })
+        }
     }
 }
 
@@ -171,8 +185,21 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
                 ship_id: as_int("ship id", ship[1])?,
                 position: parse_tuple(ship[2])?,
                 velocity: parse_tuple(ship[3])?,
+                resources: parse_resources(ship[4])?,
             })
         }
+    }
+}
+
+fn parse_resources(tree: &ValueTree) -> Result<Resources, Box<dyn std::error::Error>> {
+    let response = to_native_list(&tree);
+
+    if response.len() != 4 {
+        Err(Box::from("unexpected resource structure"))
+    } else {
+        Ok(Resources {
+            fuel: as_int("fuel", response[0])?,
+        })
     }
 }
 
@@ -181,31 +208,6 @@ mod test {
     use super::*;
     use super::GameStage::*;
     use super::Role::*;
-
-    #[test]
-    fn test_parse_static_game_info() {
-        let response = "[256, 0, [512, 1, 64], [16, 128], [326, 0, 10, 1]]";
-        let tree = crate::value_tree::parse_value_tree(response).unwrap();
-
-        let result = parse_static_game_info(&tree).unwrap();
-
-        assert_eq!(result.game_radius, 128);
-        assert_eq!(result.planet_radius, 16);
-        assert_eq!(result.max_steps, 256);
-    }
-
-    #[test]
-    fn test_parse_ship() {
-        let response = "[[1, 0, (-48, -12), (0, 0), [326, 0, 10, 1], 0, 64, 2], []]";
-        let tree = crate::value_tree::parse_value_tree(response).unwrap();
-
-        let result = parse_ship(&tree).unwrap();
-
-        assert_eq!(result.position, (-48, -12));
-        assert_eq!(result.role, Defender);
-        assert_eq!(result.ship_id, 0);
-        assert_eq!(result.velocity, (0, 0));
-    }
 
     #[test]
     fn test_parse_game_response() {
@@ -220,6 +222,8 @@ mod test {
         assert_eq!(result.static_game_info.planet_radius, 16);
         assert_eq!(result.static_game_info.max_steps, 256);
         assert_eq!(result.static_game_info.role, Attacker);
+        assert_eq!(result.static_game_info.max_resources, 512);
+        assert_eq!(result.static_game_info.suggested_resources.fuel, 326);
 
         assert_eq!(result.game_state.game_tick, 0);
         assert_eq!(result.game_state.ships.len(), 2);
@@ -227,5 +231,6 @@ mod test {
         assert_eq!(result.game_state.ships[0].role, Defender);
         assert_eq!(result.game_state.ships[0].ship_id, 0);
         assert_eq!(result.game_state.ships[0].velocity, (0, 0));
+        assert_eq!(result.game_state.ships[0].resources.fuel, 326);
     }
 }
