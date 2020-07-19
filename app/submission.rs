@@ -112,7 +112,6 @@ trait AI {
 struct Stationary {}
 struct Noop {}
 struct Shoot {}
-
 struct Orbiting {}
 
 impl AI for Stationary {
@@ -121,7 +120,8 @@ impl AI for Stationary {
 
         match get_max_resources(game_response) {
             Some(max_resources) => {
-                let cooling = (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                let cooling =
+                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
                 parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
             }
             None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
@@ -155,6 +155,17 @@ fn find_ship(game_response: &GameResponse, role: Role) -> Option<&Ship> {
     }
 }
 
+fn find_ships(game_response: &GameResponse, role: Role) -> Vec<&Ship> {
+    match &game_response.game_state {
+        Some(game_state) => game_state
+            .ships
+            .iter()
+            .filter(|ship| ship.role == role)
+            .collect(),
+        None => vec![],
+    }
+}
+
 fn our_role(game_response: &GameResponse) -> Option<Role> {
     match &game_response.static_game_info {
         Some(game_info) => Some(game_info.role),
@@ -173,29 +184,58 @@ fn inverse_role(role: Role) -> Role {
 
 impl AI for Shoot {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+        use crate::protocol::*;
+
         match get_max_resources(game_response) {
-            Some(max_resources) => parse(&format!(
-                "[3, {}, [{}, 63, 12, 1]]",
-                player_key,
-                max_resources - 420
-            )),
+            Some(max_resources) => {
+                let resource_split = (max_resources - 256 - 1 * PARAM_MULT.3) / 2;
+                let cannon = resource_split / PARAM_MULT.1;
+                let cooling = resource_split / PARAM_MULT.2;
+                parse(&format!(
+                    "[3, {}, [256, {}, {}, 1]]",
+                    player_key, cannon, cooling
+                ))
+            }
             None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
         }
     }
 
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        fn close_enough(us: &Ship, them: &Ship) -> bool {
+            let dist =
+                (us.position.0 - them.position.0).abs() + (us.position.1 - them.position.1).abs();
+
+            dist <= 32
+        }
+        fn cold(ship: &Ship) -> bool {
+            ship.heat <= 16
+        }
+        fn little_cooling(ship: &Ship) -> bool {
+            if let Some(resources) = &ship.resources {
+                resources.cooling <= 16
+            } else { true }
+        }
         let our_role = our_role(&game_response).unwrap();
         let our_ship = find_ship(&game_response, our_role).unwrap();
-        let opp_ship = find_ship(&game_response, inverse_role(our_role)).unwrap();
+        let opp_ships = find_ships(&game_response, inverse_role(our_role));
 
-        let target_x = opp_ship.position.0;
-        let target_y = opp_ship.position.1;
         let (gx, gy) = gravity(our_ship.position);
 
-        vec![
-            Command::Shoot(our_ship.ship_id, (target_x, target_y), 63),
-            Command::Accelerate(our_ship.ship_id, (gx, gy)),
-        ]
+        let mut cmds = vec!(Command::Accelerate(our_ship.ship_id, (gx, gy)));
+
+        for target in opp_ships {
+            if close_enough(our_ship, target) && cold(our_ship) && little_cooling(target) {
+                let target_gravity = gravity(target.position);
+                let (target_vx, target_vy) = (target.velocity.0 + target_gravity.0, target.velocity.1 + target_gravity.1);
+                let (target_x, target_y) = (target.position.0 + target_vx, target.position.1 + target_vy);
+
+                if let Some(resources) = &our_ship.resources {
+                    cmds.push(Command::Shoot(our_ship.ship_id, (target_x, target_y), resources.cannon));
+                }
+                break;
+            }
+        }
+        cmds
     }
 }
 
@@ -205,7 +245,8 @@ impl AI for Orbiting {
 
         match get_max_resources(game_response) {
             Some(max_resources) => {
-                let cooling = (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                let cooling =
+                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
                 parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
             }
             None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
@@ -345,7 +386,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
             "shoot" => Some(Box::from(Shoot {})),
             _ => {
                 println!("unknown ai {}, using default", ai_str);
-                Some(Box::from(Orbiting {}))
+                Some(Box::from(Shoot {}))
             }
         },
         None => None,
@@ -374,7 +415,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Shoot {}));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {
