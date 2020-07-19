@@ -10,7 +10,6 @@ mod draw;
 mod nom_helpers;
 mod protocol;
 mod submission;
-mod gui;
 
 use crate::aplang::*;
 use crate::encodings::*;
@@ -62,9 +61,6 @@ struct MyOpt {
     #[structopt(long)]
     interactive: bool,
 
-    #[structopt(long)]
-    gui: bool,
-
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
 }
@@ -95,6 +91,8 @@ pub fn parse_points(s : &str) -> Option<Vec<Point>> {
         }
     }
 }
+
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments according to the struct
@@ -149,6 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
 
+
     /////////////////////////////////////////////
     // RUN MODE 3: RUN GALAXY (OR OTHER PROTOCOL)
     /////////////////////////////////////////////
@@ -179,11 +178,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 vtree
             }
         };
-
-    if opt.gui {
-        return gui::gui(prg_var, env, state)
-    }
-
     let mut round = 0;
     let mut screen_offset = Point(0,0);
     loop {
