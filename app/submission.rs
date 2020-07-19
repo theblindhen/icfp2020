@@ -14,26 +14,35 @@ fn post(url: &str, body: &ValueTree) -> Result<GameResponse, Box<dyn std::error:
 
     println!("Sending: {}", body);
 
-    let response = ureq::post(url)
-        .timeout(std::time::Duration::from_secs(30))
-        .send_string(&encoded_body)
-        .into_string()?;
+    loop {
+        let response =
+            ureq::post(url)
+            .timeout(std::time::Duration::from_secs(30))
+            .send_string(&encoded_body)
+            .into_string();
+        match response {
+            Ok(response) => {
+                if (response == "") {
+                    panic!("received empty response from server");
+                }
 
-    if (response == "") {
-        panic!("received empty response from server");
+                let (decoded_response, remainder) = demodulate(&response);
+                if (remainder != "") {
+                    panic!(
+                        "non-empty remainder when demodulating server response: {}",
+                        response
+                    );
+                }
+
+                println!("Received: {}", decoded_response);
+
+                return parse_game_response(&decoded_response)
+            },
+            Err(e) => {
+                error!("Error communicating with server:\n\t{}\nTrying again", e)
+            }
+        }
     }
-
-    let (decoded_response, remainder) = demodulate(&response);
-    if (remainder != "") {
-        panic!(
-            "non-empty remainder when demodulating server response: {}",
-            response
-        );
-    }
-
-    println!("Received: {}", decoded_response);
-
-    Ok(parse_game_response(&decoded_response)?)
 }
 
 pub fn parse(tree: &str) -> ValueTree {
