@@ -316,4 +316,14 @@ mod test {
         assert_eq!(result.static_game_info, None);
         assert_eq!(result.game_state, None);
     }
+
+    #[test]
+    fn test_parse_not_started_game_response() {
+        let response = "[1, 0, [256, 1, [448, 1, 64], [16, 128], []], []]";
+        let tree = crate::value_tree::parse_value_tree(response).unwrap();
+
+        let result = parse_game_response(&tree).unwrap();
+
+        assert_eq!(result.game_stage, NotStarted);
+    }
 }

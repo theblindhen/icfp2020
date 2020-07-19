@@ -45,7 +45,7 @@ fn join_msg(player_key: i64) -> ValueTree {
 }
 
 fn start_msg(player_key: i64) -> ValueTree {
-    parse(&format!("[3, {}, [0, 0, 0, 0]]", player_key))
+    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
 }
 
 fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
