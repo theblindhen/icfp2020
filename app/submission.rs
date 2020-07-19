@@ -2,6 +2,7 @@ use crate::encodings::{demodulate, modulate, vcons, vi64, vnil};
 use crate::interpreter::*;
 use crate::protocol::*;
 use crate::value_tree::*;
+use crate::sim;
 use log::*;
 use std::convert::TryInto;
 use std::env;
@@ -115,6 +116,8 @@ struct Stationary {}
 struct Noop {}
 struct Shoot {}
 
+struct Orbiting {}
+
 impl AI for Stationary {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
         start_msg(player_key, game_response)
@@ -191,6 +194,67 @@ impl AI for Shoot {
     }
 }
 
+impl AI for Orbiting {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+        start_msg(player_key, game_response)
+    }
+
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        /// std::i64::MAX if it doesn't crash
+        fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
+            let (mut xmin, mut xmax) = (sv.s.x, sv.s.x);
+            let (mut ymin, mut ymax) = (sv.s.y, sv.s.y);
+            for pos in sv.one_orbit_positions(planet_radius, 256) {
+                if sim::dist_to_planet(planet_radius, pos) <= 0 {
+                    // Crashed into the planet
+                    return (xmax - xmin) + (ymax - ymin)
+                }
+                xmin = xmin.min(pos.x);
+                xmax = xmax.max(pos.x);
+                ymin = ymin.min(pos.y);
+                ymax = ymax.max(pos.y);
+            }
+            std::i64::MAX
+        }
+        match (game_response.static_game_info, game_response.game_state) {
+            (Some(static_game_info), Some(game_state)) => {
+                let our_role = static_game_info.role;
+                let our_ship = game_state
+                    .ships
+                    .iter()
+                    .find(|&ship| ship.role == our_role)
+                    .unwrap();
+
+                let sv = sim::SV {
+                    s: our_ship.position.into(),
+                    v: our_ship.velocity.into(),
+                };
+                let mut best_measure = goodness_of_drift_from(&sv, static_game_info.planet_radius);
+                let mut best_thrust = sim::XY { x: 0, y: 0 };
+                for &thrust in &sim::NONZERO_THRUSTS {
+                    let mut thrusted_sv = sv.clone();
+                    thrusted_sv.thrust(thrust);
+                    let measure = goodness_of_drift_from(&thrusted_sv, static_game_info.planet_radius);
+                    if measure > best_measure {
+                        best_measure = measure;
+                        best_thrust = thrust;
+                    }
+                }
+                if best_thrust == (sim::XY { x: 0, y: 0 }) {
+                    vec![]
+                } else {
+                    vec![Command::Accelerate(our_ship.ship_id, best_thrust.into())]
+                }
+
+            }
+            _ => {
+                error!("Error in survivor ai: no static game info or game state");
+                vec![]
+            }
+        }
+    }
+}
+
 fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
@@ -264,6 +328,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
     match ai_str {
         Some(ai_str) => match ai_str.as_ref() {
             "stationary" => Some(Box::from(Stationary {})),
+            "orbiting" => Some(Box::from(Orbiting {})),
             "noop" => Some(Box::from(Noop {})),
             "shoot" => Some(Box::from(Shoot {})),
             _ => {
