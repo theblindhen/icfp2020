@@ -25,3 +25,4 @@ png = "0.16"
 num-bigint = "0.3"
 num-traits = "0.2.12"
 fltk = { version = "0.7", optional = true }
+vector2d = "2.2"

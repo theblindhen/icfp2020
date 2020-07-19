@@ -11,6 +11,7 @@ mod nom_helpers;
 mod protocol;
 mod submission;
 mod gui;
+mod sim;
 
 use crate::aplang::*;
 use crate::encodings::*;
@@ -22,8 +23,6 @@ use std::io::BufReader;
 use std::fs::File;
 
 use log::*;
-
-const DEFAULT_AI : &'static str = "stationary";
 
 // Struct for command line parsing 
 #[derive(StructOpt, Debug)]
@@ -70,8 +69,11 @@ struct MyOpt {
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
 
-    #[structopt(default_value = DEFAULT_AI,long)]
-    ai: String,
+    #[structopt(long)]
+    ai1: Option<String>,
+
+    #[structopt(long)]
+    ai2: Option<String>,
 }
 
 // Parenthesised, comma-separated point
@@ -130,21 +132,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ////////////////////////////////////////
     // RUN MODE 1: SUBMISSION
     ////////////////////////////////////////
-    let ai =
-        if opt.ai == "stationary" || opt.ai == "noop" {
-            &opt.ai
-        } else {
-            error!("Unknown AI requested '{}'. Using default '{}'", opt.ai, DEFAULT_AI );
-            DEFAULT_AI
-        };
     match &opt.url_and_key[..] {
         [server_url, player_key] =>
-            return submission::main(server_url, player_key, &ai, opt.proxy, opt.interactive),
+            return submission::main(server_url, player_key, opt.ai1, opt.ai2, opt.proxy, opt.interactive),
         [] => (),
         _ => panic!("Bad args"),
     }
-
-
 
     ////////////////////////////////////////
     // RUN MODE 2: MODULATE/DEMODULATE
