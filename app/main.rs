@@ -54,6 +54,12 @@ struct MyOpt {
     #[structopt(long)]
     demodulate: Option<String>,
 
+    #[structopt(long)]
+    proxy: bool,
+
+    #[structopt(long)]
+    interactive: bool,
+
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
 }
@@ -102,7 +108,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let opt = MyOpt::from_args();
 
     match &opt.url_and_key[..] {
-        [server_url, player_key] => return submission::main(server_url, player_key),
+        [server_url, player_key] => return submission::main(server_url, player_key, opt.proxy, opt.interactive),
         [] => (),
         _ => panic!("Bad args"),
     }
