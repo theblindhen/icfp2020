@@ -11,7 +11,7 @@ type ShipId = i64;
 // Param1 = Fuel
 // Param2 = Cannon power
 // Param3 = Cooling
-// Param4 = ???
+// Param4 = Clones
 const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
 
 // OBSERVATIONS ON PHYSICS
@@ -33,9 +33,28 @@ const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
 // [4, 3158992272722289254, [[2, 0, (-12, -49), 4]]]
 // (2, shipId, target, cannon-power?)
 
+// Received: [1, 1, [256, 0, [512, 1, 64], [16, 128], [190, 64, 0, 1]], [19, [16, 128], [[[1, 0, (46, -38), (6, 3), [0, 63, 0, 1], 64, 64, 1], [[2, (48, -12), 64, 138, 4]]], [[0, 1, (48, -12), (0, 0), [182, 0, 16, 1], 64, 64, 1], [[0, (-1, 0)]]]]]]
+//                            ^: The damage dealt
 
-// Sell resources?
-// [[3, 0, [8, 0, 0, 1]]
+
+// Deploy Clone
+// [4, 4026977018635604846, [[0, 0, (1, 0)], [3, 0, [4, 0, 0, 1]]]]
+// Received:
+// [1, 1, [256, 1, [448, 1, 64], [16, 128], []], [1, [16, 128], [[[1, 0, (-48, -35), (0, 0), [379, 2, 2, 15], 6, 64, 1], [[0, (1, 0)], [3, [4, 0, 0, 1]]]], [[0, 1, (48, 35), (0, 0), [317, 0, 16, 1], 0, 64, 1], [[0, (-1, 0)]]], [[1, 2, (-48, -35), (0, 0), [4, 0, 0, 1], 0, 64, 1], []]]]]
+
+
+
+
+
+// Detonate
+// [4, 1979726324849647097, [[1, 0]]]
+// Rectangle 9*9 centered on ship
+// [1, 2, [256, 1, [448, 1, 64], [16, 128], []], [30, [16, 128], [[[1, 0, (46, -5), (-5, 3), [0, 0, 0, 0], 64, 64, 1], [[1, 128, 32]]], [[0, 1, (48, -12), (0, 0), [171, 0, 16, 1], 0, 64, 1], [[0, (-1, 0)]]]]]]
+
+// Detonation of a clone:
+// [4, 4026977018635604846, [[1, 2]]]
+// Received POST response:
+// [1, 2, [256, 1, [448, 1, 64], [16, 128], []], [25, [16, 128], [[[0, 1, (48, 35), (0, 0), [260, 0, 16, 1], 0, 64, 1], [[0, (-1, 0)]]], [[1, 2, (46, 39), (-3, 5), [0, 0, 0, 0], 24, 64, 1], [[1, 161, 32]]]]]]
 
 
 // OBSERVATIONS ON POST RESPONSES
@@ -97,7 +116,7 @@ pub struct Resources {
     pub fuel: i64,
     pub cannon: i64,
     pub cooling: i64,
-    pub param4: i64,
+    pub clones: i64,
 }
 
 pub enum Command {
@@ -264,7 +283,7 @@ fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::e
             fuel: as_int("fuel", response[0])?,
             cannon: as_int("cannon", response[1])?,
             cooling: as_int("cooling", response[2])?,
-            param4: as_int("param4", response[3])?,
+            clones: as_int("clones", response[3])?,
         }))
     }
 }
