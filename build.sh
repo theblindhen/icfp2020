@@ -1,3 +1,3 @@
 #!/bin/sh
 
-cargo build --bin submission --release --offline
+cargo build --release --offline

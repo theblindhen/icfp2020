@@ -1,23 +1,12 @@
-#![allow(unused)]
-
-mod aplang;
-mod bits2d;
-mod draw;
-mod encodings;
-mod interpreter;
-mod lexer;
-mod nom_helpers;
-mod value_tree;
-
-use encodings::{vcons, vi64, vnil};
-use interpreter::*;
+use crate::encodings::{vcons, vi64, vnil, modulate, demodulate};
+use crate::interpreter::*;
 use log::*;
 use std::env;
 use std::io::BufRead;
-use value_tree::*;
+use crate::value_tree::*;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
-    let encoded_body = encodings::modulate(&body);
+    let encoded_body = modulate(&body);
 
     println!("Sending: {}", body);
 
@@ -30,7 +19,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
         panic!("received empty response from server");
     }
 
-    let (decoded_response, remainder) = encodings::demodulate(&response);
+    let (decoded_response, remainder) = demodulate(&response);
     if (remainder != "") {
         panic!(
             "non-empty remainder when demodulating server response: {}",
@@ -44,7 +33,7 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 }
 
 fn parse(tree: &str) -> ValueTree {
-    value_tree::parse_value_tree(&tree).unwrap()
+    parse_value_tree(&tree).unwrap()
 }
 
 fn join_msg(player_key: i64) -> ValueTree {
@@ -76,11 +65,10 @@ fn run_ai(url: &str, player_key: i64) {
     }
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub fn main(server_url: &str, player_key: &str) -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
-    let server_url = &args[1];
-    let player_key: i64 = args[2].parse().unwrap();
+    let player_key: i64 = player_key.parse().unwrap();
     let interactive = {
         if args.len() > 3 {
             Some(&args[3])
