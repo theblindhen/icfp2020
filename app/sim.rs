@@ -44,20 +44,24 @@ impl SV {
     }
 }
 
-/// Gives the distance to the planet as measured by the max-norm (infinity norm)
-pub fn dist_to_planet(planet_radius: i64, pos: XY) -> i64 {
+pub fn collided_with_planet(planet_radius: i64, pos: XY) -> bool {
     let absx = pos.x.abs();
     let absy = pos.y.abs();
-    let pos = (); // shadow
-    if absx <= planet_radius || absy <= planet_radius {
-        // Collision
-        0
-    } else if (absx > planet_radius) {
-        absx - planet_radius
-    } else { // absy > planet_radius
-        absy - planet_radius
-    }
+    absx <= planet_radius && absy <= planet_radius
 }
+
+// /// Gives the distance to the planet as measured by the max-norm (infinity norm)
+// pub fn dist_to_planet(planet_radius: i64, pos: XY) -> i64 {
+//     let absx = pos.x.abs();
+//     let absy = pos.y.abs();
+//     let pos = (); // shadow
+//     if absx <= planet_radius && absy <= planet_radius {
+//         // Collision
+//         0
+//     } else {
+//         (absx - planet_radius).max(absy - planet_radius)
+//     }
+// }
 
 /// Returns {1, 2, 3, 4}, where (+x, 0) is in quadrant 1, (0, +y) is in quadrant
 /// 2, etc., and (0,0) is defined to be in quadrant 1.
@@ -98,8 +102,7 @@ impl Iterator for OneOrbitPositions {
     type Item = XY;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if dist_to_planet(self.planet_radius, self.sv.s) <= 0 {
-            // Crashed into the planet already
+        if collided_with_planet(self.planet_radius, self.sv.s) {
             None
         } else {
             self.sv.drift();
