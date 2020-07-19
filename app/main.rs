@@ -55,6 +55,12 @@ struct MyOpt {
     #[structopt(long)]
     demodulate: Option<String>,
 
+    #[structopt(long)]
+    proxy: bool,
+
+    #[structopt(long)]
+    interactive: bool,
+
     #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
     url_and_key: Vec<String>,
 }
@@ -86,27 +92,11 @@ pub fn parse_points(s : &str) -> Option<Vec<Point>> {
     }
 }
 
-// Demonstrates sending an HTTP request and decoding the response as JSON.
-fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>> {
-    println!("Sending request to {}...", url);
 
-    let reply =
-        ureq::post(url)
-            .timeout(std::time::Duration::from_secs(30))
-            .send_string(body)
-            .into_string()?;
-    Ok(reply)
-}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments according to the struct
     let opt = MyOpt::from_args();
-
-    match &opt.url_and_key[..] {
-        [server_url, player_key] => return submission::main(server_url, player_key),
-        [] => (),
-        _ => panic!("Bad args"),
-    }
 
     // Set up logging 
     // There are five macros similar to "println!":
@@ -129,6 +119,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
+
+    ////////////////////////////////////////
+    // RUN MODE 1: SUBMISSION
+    ////////////////////////////////////////
+    match &opt.url_and_key[..] {
+        [server_url, player_key] => return submission::main(server_url, player_key, opt.proxy, opt.interactive),
+        [] => (),
+        _ => panic!("Bad args"),
+    }
+
+
+
+    ////////////////////////////////////////
+    // RUN MODE 2: MODULATE/DEMODULATE
+    ////////////////////////////////////////
     if let Some(input) = opt.modulate {
         let modulated = encodings::modulate(&value_tree::parse_value_tree(&input).unwrap());
         println!("{}", modulated);
@@ -141,6 +146,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
+
+
+    /////////////////////////////////////////////
+    // RUN MODE 3: RUN GALAXY (OR OTHER PROTOCOL)
+    /////////////////////////////////////////////
     let program =
         match &opt.protocol.expect("Specify a protocol")[..] {
             "galaxy" => lexer::lex("galaxy.txt"),

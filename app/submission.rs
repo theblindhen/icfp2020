@@ -5,6 +5,8 @@ use std::env;
 use std::io::BufRead;
 use crate::value_tree::*;
 
+const APIKEY : &'static str = "91bf0ff907084b7595841e534276a415";
+
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
 
@@ -65,30 +67,27 @@ fn run_ai(url: &str, player_key: i64) {
     }
 }
 
-pub fn main(server_url: &str, player_key: &str) -> Result<(), Box<dyn std::error::Error>> {
+pub fn main(server_url: &str, player_key: &str, proxy: bool, interactive: bool) -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
 
     let player_key: i64 = player_key.parse().unwrap();
-    let interactive = {
-        if args.len() > 3 {
-            Some(&args[3])
-        } else {
-            None
-        }
-    };
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
-    let url = match interactive {
-        Some(api_key) => format!("{}/aliens/send?apiKey={}", server_url, api_key),
-        None => format!("{}/aliens/send", server_url),
-    };
+
+    let url =
+        if proxy {
+            format!("{}/aliens/send?apiKey={}", server_url, APIKEY)
+        } else {
+            format!("{}/aliens/send", server_url)
+        };
 
     let _ = post(&url, &join_msg(player_key))?;
     let _ = post(&url, &start_msg(player_key))?;
 
-    match interactive {
-        Some(_) => run_interactively(&url),
-        None => run_ai(&url, player_key),
+    if interactive {
+        run_interactively(&url)
+    } else {
+        run_ai(&url, player_key)
     }
 
     Ok(())
