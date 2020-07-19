@@ -140,6 +140,7 @@ fn run_ai(
     game_response = try_parse_response(&post(&url, &start_msg(player_key, game_response))?);
 
     loop {
+        println!("Game response was:\n{:?}\ny", game_response);
         let cmds = 
             match game_response {
                 None => ai_noop(),
