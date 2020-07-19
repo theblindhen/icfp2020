@@ -46,6 +46,12 @@ struct MyOpt {
 
     #[structopt(long)]
     make_join_message_with_key: Option<i64>,
+
+    #[structopt(long)]
+    modulate: Option<String>,
+
+    #[structopt(long)]
+    demodulate: Option<String>,
 }
 
 // Parenthesised, comma-separated point
@@ -112,11 +118,15 @@ fn main() {
     debug!("You are seeing debug stuff");
     trace!("You are reading everything");
 
-    if let Some(key) = opt.make_join_message_with_key {
-        use encodings::{vcons, vnil, vi64};
-        let join = vcons(vi64(2), vcons(vi64(key), vcons(vnil(), vnil())));
-        let modulated = encodings::modulate(&join);
+    if let Some(input) = opt.modulate {
+        let modulated = encodings::modulate(&value_tree::parse_value_tree(&input).unwrap());
         println!("{}", modulated);
+        return;
+    }
+
+    if let Some(input) = opt.demodulate {
+        let demodulated = encodings::demodulate(&input);
+        println!("{}", demodulated.0);
         return;
     }
 
