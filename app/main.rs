@@ -8,6 +8,7 @@ mod interpreter;
 mod bits2d;
 mod draw;
 mod nom_helpers;
+mod submission;
 
 use crate::aplang::*;
 use crate::encodings::*;
@@ -52,6 +53,9 @@ struct MyOpt {
 
     #[structopt(long)]
     demodulate: Option<String>,
+
+    #[structopt(name = "SERVER_URL_AND_PLAYER_KEY")]
+    url_and_key: Vec<String>,
 }
 
 // Parenthesised, comma-separated point
@@ -93,9 +97,15 @@ fn http_json(url: &str, body: &str) -> Result<String, Box<dyn std::error::Error>
     Ok(reply)
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command line arguments according to the struct
     let opt = MyOpt::from_args();
+
+    match &opt.url_and_key[..] {
+        [server_url, player_key] => return submission::main(server_url, player_key),
+        [] => (),
+        _ => panic!("Bad args"),
+    }
 
     // Set up logging 
     // There are five macros similar to "println!":
@@ -121,13 +131,13 @@ fn main() {
     if let Some(input) = opt.modulate {
         let modulated = encodings::modulate(&value_tree::parse_value_tree(&input).unwrap());
         println!("{}", modulated);
-        return;
+        return Ok(());
     }
 
     if let Some(input) = opt.demodulate {
         let demodulated = encodings::demodulate(&input);
         println!("{}", demodulated.0);
-        return;
+        return Ok(());
     }
 
     let program =
@@ -168,7 +178,7 @@ fn main() {
                         Point(0,0)
                     } else {
                         match point_from_terminal(screen_offset.0, screen_offset.1) {
-                            None => return,
+                            None => return Ok(()),
                             Some(new_point) => {
                                 new_point
                             }
