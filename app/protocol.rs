@@ -22,13 +22,20 @@ const PARAM_MULT : (u8,u8,u8,u8) = (1, 4, 12, 2);
 //  - If 8-cooling < 0 then the ship is cooled down.
 //  - Heat-capacity is 64 (perhaps = StaticGameInfo.static_unk2)
 //  - If ship's heat would exceed capacity, as much fuel is burned to compensate (active cooling)
+//  - When the ship shoots, heat is added according to the cannon power
+//  - When the ship is hit, heat is added acording to distance from the shooter and the shooter's cannon power
+//      (we still don't know the precise function of this heat)
 
 
 // OBSERVATIONS ON COMMANDS
 
 // Shoot:
+// [4, 3158992272722289254, [[2, 0, (-12, -49), 4]]]
 // (2, shipId, target, cannon-power?)
 
+
+// Sell resources?
+// [[3, 0, [8, 0, 0, 1]]
 
 
 // OBSERVATIONS ON POST RESPONSES

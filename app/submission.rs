@@ -15,7 +15,6 @@ fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Er
 
     loop {
         let response = ureq::post(url)
-            .timeout(std::time::Duration::from_secs(30))
             .send_string(&encoded_body)
             .into_string();
         match response {
