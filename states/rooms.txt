@@ -23,8 +23,12 @@ Copy the number for the non-UI player as <player_key> into either of the followi
     cargo run -- --interactive --proxy https://icfpc2020-api.testkontur.ru <player_key>
 
 Then type the following into the UI to start the game:
-205 3
 
+UI is Player 0:
+    205 3
+
+UI is Player 1:
+    205 40
 
 ROOMS
 ----------------------
