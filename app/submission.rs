@@ -52,8 +52,13 @@ fn join_msg(player_key: i64) -> ValueTree {
     parse(&format!("[2, {}, []]", player_key))
 }
 
-fn start_msg(player_key: i64) -> ValueTree {
-    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+    match get_max_resources(game_response) {
+        Some(max_resources) => {
+            parse(&format!("[3, {}, [{}, 0, 0, 1]]", player_key, max_resources-2))
+        },
+        None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
+    }
 }
 
 fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
@@ -131,7 +136,8 @@ fn run_ai(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
-    let mut game_response = try_parse_response(&post(&url, &start_msg(player_key))?);
+    let mut game_response = try_parse_response(&initial_game_response);
+    game_response = try_parse_response(&post(&url, &start_msg(player_key, game_response))?);
 
     loop {
         let cmds = 
