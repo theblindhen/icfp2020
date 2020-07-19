@@ -44,11 +44,8 @@ fn join_msg(player_key: i64) -> ValueTree {
     parse(&format!("[2, {}, []]", player_key))
 }
 
-fn start_msg(player_key: i64, resources: Resources) -> ValueTree {
-    parse(&format!(
-        "[3, {}, [{}, 0, 0, 0]]",
-        player_key, resources.fuel
-    ))
+fn start_msg(player_key: i64) -> ValueTree {
+    parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key))
 }
 
 fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
@@ -81,9 +78,9 @@ fn gravity((x, y): (i64, i64)) -> (i64, i64) {
 }
 
 fn decide_command(game_response: GameResponse) -> Vec<Command> {
-    match game_response.game_state {
-        Some(game_state) => {
-            let our_role = game_response.static_game_info.role;
+    match (game_response.static_game_info, game_response.game_state) {
+        (Some(static_game_info), Some(game_state)) => {
+            let our_role = static_game_info.role;
             let our_ship = game_state
                 .ships
                 .iter()
@@ -94,7 +91,7 @@ fn decide_command(game_response: GameResponse) -> Vec<Command> {
 
             vec![Command::Accelerate(our_ship.ship_id, (-gx, -gy))]
         }
-        None => vec![],
+        _ => vec![],
     }
 }
 
@@ -105,13 +102,7 @@ fn run_ai(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
-    let mut game_response = post(
-        &url,
-        &start_msg(
-            player_key,
-            initial_game_response.static_game_info.suggested_resources,
-        ),
-    )?;
+    let mut game_response = post(&url, &start_msg(player_key))?;
 
     loop {
         let mut commands = vnil();

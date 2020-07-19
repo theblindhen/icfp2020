@@ -42,7 +42,7 @@ pub enum Role {
 #[derive(Debug, PartialEq, Eq)]
 pub struct GameResponse {
     pub game_stage: GameStage,
-    pub static_game_info: StaticGameInfo,
+    pub static_game_info: Option<StaticGameInfo>,
     pub game_state: Option<GameState>,
 }
 
@@ -53,7 +53,7 @@ pub struct StaticGameInfo {
     pub game_radius: i64,
     pub role: Role,
     pub max_resources: i64,
-    pub suggested_resources: Resources,
+    pub suggested_resources: Option<Resources>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -68,7 +68,7 @@ pub struct Ship {
     pub ship_id: ShipId,
     pub position: (i64, i64),
     pub velocity: (i64, i64),
-    pub resources: Resources,
+    pub resources: Option<Resources>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -139,10 +139,12 @@ fn parse_radius(tree: &ValueTree) -> Result<(i64, i64), Box<dyn std::error::Erro
     }
 }
 
-fn parse_static_game_info(tree: &ValueTree) -> Result<StaticGameInfo, Box<dyn std::error::Error>> {
+fn parse_static_game_info(tree: &ValueTree) -> Result<Option<StaticGameInfo>, Box<dyn std::error::Error>> {
     let response = to_native_list(&tree);
 
-    if response.len() != 5 {
+    if response.len() == 0 {
+        Ok(None)
+    } else if response.len() != 5 {
         Err(Box::from("unexpected structure of static game info"))
     } else {
         let (planet_radius, game_radius) = parse_radius(response[3])?;
@@ -151,14 +153,14 @@ fn parse_static_game_info(tree: &ValueTree) -> Result<StaticGameInfo, Box<dyn st
         if (inner_list.len() != 3) {
             Err(Box::from("unexpected structure of static game info"))
         } else {
-            Ok(StaticGameInfo {
+            Ok(Some(StaticGameInfo {
                 max_steps: as_int("steps", response[0])?,
                 planet_radius: planet_radius,
                 game_radius: game_radius,
                 role: parse_role(response[1])?,
                 max_resources: as_int("max resources", inner_list[0])?,
                 suggested_resources: parse_resources(response[4])?,
-            })
+            }))
         }
     }
 }
@@ -221,15 +223,17 @@ fn parse_ship(tree: &ValueTree) -> Result<Ship, Box<dyn std::error::Error>> {
     }
 }
 
-fn parse_resources(tree: &ValueTree) -> Result<Resources, Box<dyn std::error::Error>> {
+fn parse_resources(tree: &ValueTree) -> Result<Option<Resources>, Box<dyn std::error::Error>> {
     let response = to_native_list(&tree);
 
-    if response.len() != 4 {
+    if response.len() == 0 {
+        Ok(None)
+    } else if response.len() != 4 {
         Err(Box::from("unexpected resource structure"))
     } else {
-        Ok(Resources {
+        Ok(Some(Resources {
             fuel: as_int("fuel", response[0])?,
-        })
+        }))
     }
 }
 
@@ -238,7 +242,7 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     use crate::submission::*;
 
     match cmd {
-        Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({},{})]", id, vx, vy)),
+        Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({}, {})]", id, vx, vy)),
         Detonate(id) => parse(&format!("[1, {}]", id)),
         Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity))
     }
@@ -256,15 +260,16 @@ mod test {
         let tree = crate::value_tree::parse_value_tree(response).unwrap();
 
         let result = parse_game_response(&tree).unwrap();
+        let static_game_info = result.static_game_info.unwrap();
 
         assert_eq!(result.game_stage, Started);
 
-        assert_eq!(result.static_game_info.game_radius, 128);
-        assert_eq!(result.static_game_info.planet_radius, 16);
-        assert_eq!(result.static_game_info.max_steps, 256);
-        assert_eq!(result.static_game_info.role, Attacker);
-        assert_eq!(result.static_game_info.max_resources, 512);
-        assert_eq!(result.static_game_info.suggested_resources.fuel, 326);
+        assert_eq!(static_game_info.game_radius, 128);
+        assert_eq!(static_game_info.planet_radius, 16);
+        assert_eq!(static_game_info.max_steps, 256);
+        assert_eq!(static_game_info.role, Attacker);
+        assert_eq!(static_game_info.max_resources, 512);
+        assert_eq!(static_game_info.suggested_resources.unwrap().fuel, 326);
 
         let game_state = result.game_state.unwrap();
 
@@ -274,7 +279,10 @@ mod test {
         assert_eq!(game_state.ships[0].role, Defender);
         assert_eq!(game_state.ships[0].ship_id, 0);
         assert_eq!(game_state.ships[0].velocity, (0, 0));
-        assert_eq!(game_state.ships[0].resources.fuel, 326);
+
+        let resources = game_state.ships[0].resources.as_ref().unwrap();
+
+        assert_eq!(resources.fuel, 326);
     }
 
     #[test]
@@ -283,16 +291,39 @@ mod test {
         let tree = crate::value_tree::parse_value_tree(response).unwrap();
 
         let result = parse_game_response(&tree).unwrap();
+        let static_game_info = result.static_game_info.unwrap();
 
         assert_eq!(result.game_stage, NotStarted);
 
-        assert_eq!(result.static_game_info.game_radius, 128);
-        assert_eq!(result.static_game_info.planet_radius, 16);
-        assert_eq!(result.static_game_info.max_steps, 256);
-        assert_eq!(result.static_game_info.role, Attacker);
-        assert_eq!(result.static_game_info.max_resources, 512);
-        assert_eq!(result.static_game_info.suggested_resources.fuel, 326);
+        assert_eq!(static_game_info.game_radius, 128);
+        assert_eq!(static_game_info.planet_radius, 16);
+        assert_eq!(static_game_info.max_steps, 256);
+        assert_eq!(static_game_info.role, Attacker);
+        assert_eq!(static_game_info.max_resources, 512);
+        assert_eq!(static_game_info.suggested_resources.unwrap().fuel, 326);
 
         assert_eq!(result.game_state, None);
+    }
+
+    #[test]
+    fn test_parse_finished_game_response() {
+        let response = "[1, 2, [], []]";
+        let tree = crate::value_tree::parse_value_tree(response).unwrap();
+
+        let result = parse_game_response(&tree).unwrap();
+
+        assert_eq!(result.game_stage, Finished);
+        assert_eq!(result.static_game_info, None);
+        assert_eq!(result.game_state, None);
+    }
+
+    #[test]
+    fn test_parse_not_started_game_response() {
+        let response = "[1, 0, [256, 1, [448, 1, 64], [16, 128], []], []]";
+        let tree = crate::value_tree::parse_value_tree(response).unwrap();
+
+        let result = parse_game_response(&tree).unwrap();
+
+        assert_eq!(result.game_stage, NotStarted);
     }
 }
