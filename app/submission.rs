@@ -331,7 +331,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
             "shoot" => Some(Box::from(Shoot {})),
             _ => {
                 println!("unknown ai {}, using default", ai_str);
-                Some(Box::from(Stationary {}))
+                Some(Box::from(Orbiting {}))
             }
         },
         None => None,
@@ -360,7 +360,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Stationary {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {
