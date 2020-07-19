@@ -11,6 +11,7 @@ mod nom_helpers;
 mod protocol;
 mod submission;
 mod gui;
+mod sim;
 
 use crate::aplang::*;
 use crate::encodings::*;
