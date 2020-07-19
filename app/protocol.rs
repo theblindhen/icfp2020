@@ -53,7 +53,7 @@ pub struct StaticGameInfo {
     pub game_radius: i64,
     pub role: Role,
     pub max_resources: i64,
-    pub suggested_resources: Option<Resources>,
+    pub opponent_resources: Option<Resources>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -159,7 +159,7 @@ fn parse_static_game_info(tree: &ValueTree) -> Result<Option<StaticGameInfo>, Bo
                 game_radius: game_radius,
                 role: parse_role(response[1])?,
                 max_resources: as_int("max resources", inner_list[0])?,
-                suggested_resources: parse_resources(response[4])?,
+                opponent_resources: parse_resources(response[4])?,
             }))
         }
     }
@@ -273,7 +273,7 @@ mod test {
         assert_eq!(static_game_info.max_steps, 256);
         assert_eq!(static_game_info.role, Attacker);
         assert_eq!(static_game_info.max_resources, 512);
-        assert_eq!(static_game_info.suggested_resources.unwrap().fuel, 326);
+        assert_eq!(static_game_info.opponent_resources.unwrap().fuel, 326);
 
         let game_state = result.game_state.unwrap();
 
@@ -304,7 +304,7 @@ mod test {
         assert_eq!(static_game_info.max_steps, 256);
         assert_eq!(static_game_info.role, Attacker);
         assert_eq!(static_game_info.max_resources, 512);
-        assert_eq!(static_game_info.suggested_resources.unwrap().fuel, 326);
+        assert_eq!(static_game_info.opponent_resources.unwrap().fuel, 326);
 
         assert_eq!(result.game_state, None);
     }
