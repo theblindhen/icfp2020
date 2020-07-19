@@ -4,14 +4,18 @@ use std::convert::TryInto;
 use std::env;
 use std::io::BufRead;
 
+use crate::submission::*;
+
+type ShipId = i64;
+
 #[derive(Debug, PartialEq, Eq)]
-enum GameStage {
+pub enum GameStage {
     NotStarted,
     Started,
     Finished,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Role {
     Attacker,
     Defender,
@@ -19,39 +23,45 @@ pub enum Role {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GameResponse {
-    game_stage: GameStage,
-    static_game_info: StaticGameInfo,
-    game_state: Option<GameState>,
+    pub game_stage: GameStage,
+    pub static_game_info: StaticGameInfo,
+    pub game_state: Option<GameState>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct StaticGameInfo {
-    max_steps: i64,
-    planet_radius: i64,
-    game_radius: i64,
-    role: Role,
-    max_resources: i64,
-    suggested_resources: Resources,
+    pub max_steps: i64,
+    pub planet_radius: i64,
+    pub game_radius: i64,
+    pub role: Role,
+    pub max_resources: i64,
+    pub suggested_resources: Resources,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct GameState {
-    game_tick: i64,
-    ships: Vec<Ship>,
+    pub game_tick: i64,
+    pub ships: Vec<Ship>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Ship {
-    role: Role,
-    ship_id: i64,
-    position: (i64, i64),
-    velocity: (i64, i64),
-    resources: Resources,
+    pub role: Role,
+    pub ship_id: ShipId,
+    pub position: (i64, i64),
+    pub velocity: (i64, i64),
+    pub resources: Resources,
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Resources {
-    fuel: i64,
+    pub fuel: i64,
+}
+
+pub enum Command {
+    Accelerate(ShipId, (i64, i64)),
+    Detonate(ShipId),
+    Shoot(ShipId, (i64, i64), i64),
 }
 
 fn as_int(field: &str, tree: &ValueTree) -> Result<i64, Box<dyn std::error::Error>> {
@@ -202,6 +212,17 @@ fn parse_resources(tree: &ValueTree) -> Result<Resources, Box<dyn std::error::Er
         Ok(Resources {
             fuel: as_int("fuel", response[0])?,
         })
+    }
+}
+
+pub fn flatten_command(cmd: Command) -> ValueTree {
+    use Command::*;
+    use crate::submission::*;
+
+    match cmd {
+        Accelerate(id, (vx, vy)) => parse(&format!("[0, {}, ({},{})]", id, vx, vy)),
+        Detonate(id) => parse(&format!("[1, {}]", id)),
+        Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity))
     }
 }
 
