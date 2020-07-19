@@ -208,7 +208,9 @@ impl AI for Shoot {
             dist <= 32
         }
         fn cold(ship: &Ship) -> bool {
-            ship.heat <= 16
+            if let Some(resources) = &ship.resources {
+                ship.heat + resources.cannon - resources.cooling + 8 <= 64
+            } else { false }
         }
         fn little_cooling(ship: &Ship) -> bool {
             if let Some(resources) = &ship.resources {
