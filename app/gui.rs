@@ -16,7 +16,7 @@ struct Game {
 
 fn step(g: &mut Game, click: Point) -> crate::draw::Overlay {
     println!("Sent point: ({}, {})", click.0, click.1);
-    trace!("State\n{}\n{}", g.state, crate::encodings::modulate(&g.state));
+    info!("State\n{}\n{}", g.state, crate::encodings::modulate(&g.state));
     let (new_state, screens) = interpreter::interact(g.prg_var, &mut g.env.clone(), &g.state, click);
     let overlay = crate::draw::Overlay::new(screens);
     g.state = new_state;
