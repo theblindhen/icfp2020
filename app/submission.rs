@@ -302,12 +302,20 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
     if let Some(game_response) = game_response {
         match our_role(&game_response) {
             Some(Role::Attacker) => {
-                // Pure Orbiter
                 match get_max_resources(&game_response) {
                     Some(max_resources) => {
-                        let cooling =
-                            (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                        (100,0,cooling,1)
+                        let fuel_min = 30;
+                        let cooling_min = 4;
+                        let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
+                        let clones  = PARAM_MULT.3*((free as f64 * 0.6)/(PARAM_MULT.3 as f64)) as i64;
+                        let fuel = free - clones - cooling_min;
+                        if fuel >= fuel_min {
+                            (fuel, 0, cooling_min, clones)
+                        } else {
+                            error!("This isn't good!");
+                            (max_resources-2, 0, 0, 1)
+                        }
+                              
                     }
                     None => (1,1,1,1)
                 }
@@ -341,23 +349,39 @@ impl AI for CloneDefender {
         let mut clones = ships.len();
         self.turns += 1;
         let our_role = our_role(&game_response).unwrap();
-        let FIRST_CLONE = 0;
-        let MORE_CLONES = 10;
 
         let mut orbiter = Orbiting{};
         let mut cmds = orbiter.step(ships, &game_response);
         for ship in ships {
             if let Some(resources) = &ship.resources {
-                let time_for_clone = (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > MORE_CLONES);
-                if our_role == Role::Defender && time_for_clone && resources.clones > 1 {
-                    clones += 1;
-                    cmds.push(Command::Clone {
-                        ship_id: ship.ship_id,
-                        fuel: resources.fuel/2,
-                        cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
-                        cooling: resources.cooling/2,
-                        clones: resources.clones/2, //Is at least 1
-                    })
+                if resources.clones > 1 {
+                    if our_role == Role::Defender {
+                         const FIRST_CLONE : u32 = 0;
+                        const WAIT_MORE_CLONES : u32 = 10; // TODO: Think
+                        if (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > WAIT_MORE_CLONES) {
+                            clones += 1;
+                            cmds.push(Command::Clone {
+                                ship_id: ship.ship_id,
+                                fuel: resources.fuel/2,
+                                cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
+                                cooling: resources.cooling/2,
+                                clones: resources.clones/2, //Is at least 1
+                            })
+                        }
+                    } else {
+                        // Attacker
+                        const WAIT_DRONE_CLONES : u32 = 10; // TODO: Think
+                        if (self.turns > WAIT_DRONE_CLONES && resources.fuel > 50) {
+                            clones += 1;
+                            cmds.push(Command::Clone {
+                                ship_id: ship.ship_id,
+                                fuel: 1,
+                                cannon: 0,
+                                cooling: 0,
+                                clones: 1,
+                            })
+                        }
+                    }
                 }
             }
         }
