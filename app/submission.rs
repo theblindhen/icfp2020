@@ -135,6 +135,22 @@ fn inverse_role(role: Role) -> Role {
     }
 }
 
+fn resource_score(ship: &Ship) -> i64 {
+    if let Some(resources) = &ship.resources {
+        resources.fuel + 4*resources.cannon + 12*resources.cooling + 2*resources.clones
+    } else {
+        0
+    }
+}
+
+
+fn total_resources(ships: &Vec<&Ship>) -> i64 {
+    let mut sum = 0;
+    for ship in ships {
+        sum += resource_score(ship);
+    }
+    sum
+}
 
 trait AI {
     fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
@@ -230,7 +246,7 @@ impl Orbiting {
     fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
         let mut last_pos = sv.s;
         let mut dist_sum = 0;
-        for pos in sv.one_orbit_positions(planet_radius, 256) {
+        for pos in sv.one_orbit_positions(planet_radius, 384) {
             if sim::collided_with_planet(planet_radius, pos) {
                 return dist_sum;
             }
@@ -278,6 +294,16 @@ impl AI for Orbiting {
                 && (ship1_sv.s.y - ship2_sv.s.y).abs() <= DETONATION_RADIUS - 1
         }
 
+        fn detonation_score(ship: &Ship, other_ships: &Vec<&Ship>) -> i64 {
+            let mut sum = 0;
+            for other_ship in other_ships {
+                if within_detonation_range(ship, other_ship) {
+                    sum += resource_score(other_ship);
+                }
+            }
+            sum
+        }
+
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
@@ -310,11 +336,11 @@ impl AI for Orbiting {
                             && within_detonation_range(ship, opp_ships[0])) {
                             return vec![Command::Detonate(ship.ship_id)]
                         } else if (resources.fuel < 10) {
-                            // A Clone baby
-                            for opp_ship in opp_ships {
-                                if within_detonation_range(ship, opp_ship) {
-                                    return vec![Command::Detonate(ship.ship_id)]
-                                }
+                            let our_ships = find_ships(&game_response, our_role);
+                            let kill_ratio = detonation_score(&ship, &opp_ships) as f64 / total_resources(&opp_ships) as f64; 
+                            let loss_ratio = detonation_score(&ship, &our_ships) as f64 / total_resources(&our_ships) as f64;
+                            if  1.1 * kill_ratio > loss_ratio {
+                                return vec![Command::Detonate(ship.ship_id)]
                             }
                         }
                     }
@@ -342,11 +368,10 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
             Some(Role::Attacker) => {
                 match get_max_resources(&game_response) {
                     Some(max_resources) => {
-                        let fuel_min = 30;
+                        let fuel_min = 50;
                         let cooling_min = 4;
                         let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
-                        // TODO: Too many clones
-                        let clones  = ((free as f64 * 0.6)/(PARAM_MULT.3 as f64)) as i64;
+                        let clones  = ((free as f64 * 0.5)/(PARAM_MULT.3 as f64)) as i64;
                         let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
                         if fuel >= fuel_min {
                             (fuel, 0, cooling_min, clones)
@@ -424,7 +449,7 @@ impl AI for CloneController {
                                         clones += 1;
                                         cmds.push(Command::Clone {
                                             ship_id: ship.ship_id,
-                                            fuel: 1,
+                                            fuel: 0,
                                             cannon: 0,
                                             cooling: 0,
                                             clones: 1,
