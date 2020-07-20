@@ -264,7 +264,7 @@ impl AI for Orbiting {
                 if sim::collided_with_planet(planet_radius, pos) {
                     return dist_sum;
                 }
-                dist_sum += sim::manhattan(pos, last_pos);
+                dist_sum += sim::max_norm(pos, last_pos);
                 last_pos = pos;
             }
             std::i64::MAX
