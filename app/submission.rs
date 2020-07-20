@@ -278,12 +278,27 @@ impl AI for Orbiting {
                         best_thrust = thrust;
                     }
                 }
-                if opp_ships.len() == 1
-                    && our_role == Attacker
-                    && within_detonation_range(ship, opp_ships[0])
-                {
-                    vec![Command::Detonate(ship.ship_id)]
-                } else if best_thrust == (sim::XY { x: 0, y: 0 }) {
+
+                // Detonate!
+                if our_role == Attacker {
+                    if let Some(resources) = &ship.resources {
+                        // Destroy the last ship
+                        if (opp_ships.len() == 1
+                            && within_detonation_range(ship, opp_ships[0])) {
+                            return vec![Command::Detonate(ship.ship_id)]
+                        } else if (resources.fuel < 10) {
+                            // A Clone baby
+                            for opp_ship in opp_ships {
+                                if within_detonation_range(ship, opp_ship) {
+                                    return vec![Command::Detonate(ship.ship_id)]
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Orbit
+                if best_thrust == (sim::XY { x: 0, y: 0 }) {
                     vec![]
                 } else {
                     vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
