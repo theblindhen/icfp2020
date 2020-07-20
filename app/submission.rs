@@ -322,8 +322,8 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
                         let fuel_min = 30;
                         let cooling_min = 4;
                         let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
-                        let clones  = PARAM_MULT.3*((free as f64 * 0.6)/(PARAM_MULT.3 as f64)) as i64;
-                        let fuel = free - clones - cooling_min;
+                        let clones  = ((free as f64 * 0.6)/(PARAM_MULT.3 as f64)) as i64;
+                        let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
                         if fuel >= fuel_min {
                             (fuel, 0, cooling_min, clones)
                         } else {
@@ -356,10 +356,10 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
 }
 
 #[derive(Default)]
-struct CloneDefender {
+struct CloneController {
     turns: u32,
 }
-impl AI for CloneDefender {
+impl AI for CloneController {
     fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
         let mut clones = ships.len();
         self.turns += 1;
@@ -488,7 +488,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
         Some(ai_str) => match ai_str.as_ref() {
             "orbiting" => Some(Box::from(Orbiting {})),
             // "shoot" => Some(Box::from(Shoot {})),
-            "clonedef" => Some(Box::from(CloneDefender::default())),
+            "clones" => Some(Box::from(CloneController::default())),
             _ => {
                 println!("unknown ai {}, using orbiting", ai_str);
                 Some(Box::from(Orbiting {}))
@@ -520,7 +520,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(CloneDefender::default()));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(CloneController::default()));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {
