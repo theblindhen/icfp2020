@@ -539,6 +539,7 @@ dependencies = [
  "num-traits",
  "png",
  "rand",
+ "rand_core",
  "structopt",
  "ureq",
  "vector2d",

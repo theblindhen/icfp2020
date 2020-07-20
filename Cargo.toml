@@ -27,3 +27,4 @@ num-traits = "0.2.12"
 fltk = { version = "0.7", optional = true }
 vector2d = "2.2"
 rand = "0.7.3"
+rand_core = "0.5.1"

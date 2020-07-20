@@ -317,16 +317,6 @@ impl AI for Orbiting {
                     s: ship.position.into(),
                     v: ship.velocity.into(),
                 };
-                let mut drift_measure =
-                    Orbiting::goodness_of_drift_from(&sv, static_game_info.planet_radius);
-                let (nonzero_thrust, nonzero_measure) =
-                    Orbiting::get_best_nonzero_thrust(&sv, static_game_info.planet_radius);
-                let best_thrust = 
-                    if nonzero_measure > drift_measure {
-                        nonzero_thrust
-                    } else {
-                        sim::XY { x: 0, y: 0 }
-                    };
 
                 // Detonate!
                 if our_role == Attacker {
@@ -347,17 +337,39 @@ impl AI for Orbiting {
                 }
 
                 // Orbit
-                if best_thrust == (sim::XY { x: 0, y: 0 }) {
-                    vec![]
-                } else {
-                    vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
+                if let Some(resources) = &ship.resources {
+                    if resources.fuel > 0 {
+                        let mut drift_measure = {
+                            use rand::seq::SliceRandom;
+                            use rand::thread_rng;
+                            use rand_core::RngCore;
+                            let mut rng = thread_rng();
+                            if rng.next_u32() % 100 < 90 {
+                                Orbiting::goodness_of_drift_from(&sv, static_game_info.planet_radius)
+                            } else {
+                                // Boogie!
+                                i64::MIN + 1
+                            }
+                        };
+                        let (nonzero_thrust, nonzero_measure) =
+                            Orbiting::get_best_nonzero_thrust(&sv, static_game_info.planet_radius);
+                        let best_thrust = 
+                            if nonzero_measure > drift_measure {
+                                nonzero_thrust
+                            } else {
+                                sim::XY { x: 0, y: 0 }
+                            };
+                        if best_thrust != (sim::XY { x: 0, y: 0 }) {
+                            return vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
+                        }
+                    }
                 }
             }
             _ => {
                 error!("Error in survivor ai: no static game info or game state");
-                vec![]
             }
         }
+        vec![]
     }
 }
 
@@ -407,6 +419,7 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
 #[derive(Default)]
 struct CloneController {
     turns: u32,
+
 }
 impl AI for CloneController {
     fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
@@ -415,9 +428,11 @@ impl AI for CloneController {
         let our_role = our_role(&game_response).unwrap();
 
         let mut orbiter = Orbiting{};
-        let mut cmds = orbiter.step(ships, &game_response);
+        let mut cmds = vec![];
+        // let mut cmds = orbiter.step(ships, &game_response);
         if let Some(sgi) = &game_response.static_game_info {
             for ship in ships {
+                let mut moved = false;
                 if let Some(resources) = &ship.resources {
                     if resources.clones > 1 {
                         if our_role == Role::Defender {
@@ -440,6 +455,7 @@ impl AI for CloneController {
                                         clones: resources.clones/2, //Is at least 1
                                     });
                                     cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                    moved = true;
                                 }
                             }
                         } else {
@@ -464,11 +480,15 @@ impl AI for CloneController {
                                             clones: 1,
                                         });
                                         cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                        moved = true;
                                     }
                                 }
                             }
                         }
                     }
+                }
+                if !moved {
+                    cmds.append(&mut orbiter.step(&vec![ship], &game_response));
                 }
             }
         }
