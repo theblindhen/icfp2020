@@ -143,6 +143,15 @@ fn inverse_role(role: Role) -> Role {
     }
 }
 
+fn mother_ship<'a>(ships: &Vec<&'a Ship>) -> Option<&'a Ship> {
+    for ship in ships {
+        if ship.ship_id <= 1 {
+            return Some(ship)
+        }
+    }
+    None
+}
+
 fn resource_score(ship: &Ship) -> i64 {
     if let Some(resources) = &ship.resources {
         resources.fuel + 4*resources.cannon + 12*resources.cooling + 2*resources.clones
@@ -336,7 +345,12 @@ impl AI for Orbiting {
                         } else if (resources.fuel < 10) {
                             let our_ships = find_ships(&game_response, our_role);
                             let kill_ratio = detonation_score(&ship, &opp_ships) as f64 / total_resources(&opp_ships) as f64; 
-                            let loss_ratio = detonation_score(&ship, &our_ships) as f64 / total_resources(&our_ships) as f64;
+                            let mut loss_ratio = detonation_score(&ship, &our_ships) as f64 / total_resources(&our_ships) as f64;
+                            if let Some(mother) = mother_ship(&our_ships) {
+                                if within_detonation_range(ship, mother) && ship.ship_id != mother.ship_id {
+                                    loss_ratio = 1.;
+                                }
+                            };
                             if  1.1 * kill_ratio > loss_ratio {
                                 return vec![Command::Detonate(ship.ship_id)]
                             }
@@ -352,7 +366,7 @@ impl AI for Orbiting {
                             use rand::thread_rng;
                             use rand_core::RngCore;
                             let mut rng = thread_rng();
-                            if rng.next_u32() % 100 < 90 {
+                            if ship.heat < 60 || rng.next_u32() % 100 < 90 {
                                 Orbiting::goodness_of_drift_from(&sv, static_game_info.planet_radius)
                             } else {
                                 // Boogie!
@@ -388,10 +402,10 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
             Some(Role::Attacker) => {
                 match get_max_resources(&game_response) {
                     Some(max_resources) => {
-                        let fuel_min = 30;
+                        let fuel_min = 50;
                         let cooling_min = 4;
                         let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
-                        let clones  = ((free as f64 * 0.4)/(PARAM_MULT.3 as f64)) as i64;
+                        let clones  = ((free as f64 * 0.3)/(PARAM_MULT.3 as f64)) as i64;
                         let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
                         if fuel >= fuel_min {
                             (fuel, 0, cooling_min, clones)
@@ -442,7 +456,7 @@ impl AI for CloneController {
             for ship in ships {
                 let mut moved = false;
                 if let Some(resources) = &ship.resources {
-                    if resources.clones > 1 {
+                    if resources.clones > 1 && ship.heat <= 60 {
                         if our_role == Role::Defender {
                             const FIRST_CLONE : u32 = 0;
                             const WAIT_MORE_CLONES : u32 = 10; // TODO: Think
@@ -482,7 +496,7 @@ impl AI for CloneController {
                                         clones += 1;
                                         cmds.push(Command::Clone {
                                             ship_id: ship.ship_id,
-                                            fuel: 0,
+                                            fuel: 2,
                                             cannon: 0,
                                             cooling: 0,
                                             clones: 1,
@@ -519,18 +533,19 @@ fn run_ai(player : i32, ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(
 
     loop {
         if player == 0 {
-            // if let Some(game_response) = &game_response {
-            //     println!("Game response was:\n{:?}\ny", game_response);
-            //     let def_ships = find_ships(&game_response, Role::Defender);
-            //     let att_ships = find_ships(&game_response, Role::Attacker);
-            //     println!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
-            //             def_ships.len(), unique_positions(&def_ships),
-            //             att_ships.len(), unique_positions(&att_ships),);
-            //     println!("Defender Resources: {}\nAttacker Resources: {}",
-            //              total_resources(&def_ships),
-            //              total_resources(&att_ships));
-
-            // }
+            if let Some(game_response) = &game_response {
+                println!("Game response was:\n{:?}\ny", game_response);
+                let def_ships = find_ships(&game_response, Role::Defender);
+                let att_ships = find_ships(&game_response, Role::Attacker);
+                println!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
+                        def_ships.len(), unique_positions(&def_ships),
+                        att_ships.len(), unique_positions(&att_ships),);
+                println!("Defender Resources: {}\nAttacker Resources: {}",
+                         total_resources(&def_ships),
+                         total_resources(&att_ships));
+                println!("Attacker Mother ship: {:?}\n\n",
+                         mother_ship(&att_ships));
+            }
         }
         let cmds = match game_response {
             None => vec![],
