@@ -273,8 +273,8 @@ impl AI for Orbiting {
         fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
             use crate::sim::*;
 
-            let ship1_sv = SV { s: ship1.position.into(), v: ship1.velocity.into() };
-            let ship2_sv = SV { s: ship2.position.into(), v: ship2.velocity.into() };
+            let mut ship1_sv = SV { s: ship1.position.into(), v: ship1.velocity.into() };
+            let mut ship2_sv = SV { s: ship2.position.into(), v: ship2.velocity.into() };
 
             ship1_sv.drift();
             ship2_sv.drift();
