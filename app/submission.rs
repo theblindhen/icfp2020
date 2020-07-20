@@ -94,47 +94,10 @@ fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
     }
 }
 
-trait AI {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64);
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command>;
-}
-
-struct Stationary {}
-struct Noop {}
-struct Shoot {}
-struct Orbiting {}
-struct CloneDefender {}
-
-impl AI for Stationary {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-        use crate::protocol::*;
-
-        match get_max_resources(game_response) {
-            Some(max_resources) => {
-                let cooling =
-                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                (100, 0, cooling as i64, 1)
-            }
-            None => (1,1,1,1)
-        }
-    }
-
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
-        let our_role = our_role(&game_response).unwrap();
-        let our_ship = find_ship(&game_response, our_role).unwrap();
-
-        let (gx, gy) = gravity(our_ship.position);
-
-        vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
-    }
-}
-
-impl AI for Noop {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-        (1,1,1,1)
-    }
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
-        vec![]
+fn find_ship_by_id(game_response: &GameResponse, ship_id: i64) -> Option<&Ship> {
+    match &game_response.game_state {
+        Some(game_state) => game_state.ships.iter().find(|ship| ship.ship_id == ship_id),
+        None => None,
     }
 }
 
@@ -172,89 +135,97 @@ fn inverse_role(role: Role) -> Role {
     }
 }
 
-impl AI for Shoot {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-        use crate::protocol::*;
 
-        match get_max_resources(game_response) {
-            Some(max_resources) => {
-                let resource_split = (max_resources - 256 - 1 * PARAM_MULT.3) / 2;
-                let cannon = resource_split / PARAM_MULT.1;
-                let cooling = resource_split / PARAM_MULT.2;
-                (256, cannon, cooling, 1)
-            },
-            None => (1,1,1,1)
-        }
+trait AI {
+    fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
+        self.step(&vec![ship], &game_response)
     }
 
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
-        fn close_enough(us: &Ship, them: &Ship) -> bool {
-            let dist =
-                (us.position.0 - them.position.0).abs() + (us.position.1 - them.position.1).abs();
-
-            dist <= 32
-        }
-        fn cold(ship: &Ship) -> bool {
-            if let Some(resources) = &ship.resources {
-                ship.heat + resources.cannon - resources.cooling + 8 <= 64
-            } else {
-                false
-            }
-        }
-        fn little_cooling(ship: &Ship) -> bool {
-            if let Some(resources) = &ship.resources {
-                resources.cooling <= 16
-            } else {
-                true
-            }
-        }
-        let our_role = our_role(&game_response).unwrap();
-        let our_ship = find_ship(&game_response, our_role).unwrap();
-        let opp_ships = find_ships(&game_response, inverse_role(our_role));
-
-        let (gx, gy) = gravity(our_ship.position);
-
-        let mut cmds = vec![Command::Accelerate(our_ship.ship_id, (gx, gy))];
-
-        for target in opp_ships {
-            if close_enough(our_ship, target) && cold(our_ship) && little_cooling(target) {
-                let target_gravity = gravity(target.position);
-                let (target_vx, target_vy) = (
-                    target.velocity.0 + target_gravity.0,
-                    target.velocity.1 + target_gravity.1,
-                );
-                let (target_x, target_y) =
-                    (target.position.0 + target_vx, target.position.1 + target_vy);
-
-                if let Some(resources) = &our_ship.resources {
-                    cmds.push(Command::Shoot(
-                        our_ship.ship_id,
-                        (target_x, target_y),
-                        resources.cannon,
-                    ));
-                }
-                break;
-            }
+    fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
+        let mut cmds = vec![];
+        for ship in ships {
+            cmds.append(&mut self.step_a_ship(ship, &game_response));
         }
         cmds
     }
 }
 
+// struct Shoot {}
+// impl Shoot {
+//     fn step_a_ship(&mut self, our_ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
+//         fn close_enough(us: &Ship, them: &Ship) -> bool {
+//             let dist =
+//                 (us.position.0 - them.position.0).abs() + (us.position.1 - them.position.1).abs();
+
+//             dist <= 32
+//         }
+//         fn cold(ship: &Ship) -> bool {
+//             if let Some(resources) = &ship.resources {
+//                 ship.heat + resources.cannon - resources.cooling + 8 <= 64
+//             } else {
+//                 false
+//             }
+//         }
+//         fn little_cooling(ship: &Ship) -> bool {
+//             if let Some(resources) = &ship.resources {
+//                 resources.cooling <= 16
+//             } else {
+//                 true
+//             }
+//         }
+//         let our_role = our_role(&game_response).unwrap();
+//         let opp_ships = find_ships(&game_response, inverse_role(our_role));
+
+//         let (gx, gy) = gravity(our_ship.position);
+
+//         let mut cmds = vec![Command::Accelerate(our_ship.ship_id, (gx, gy))];
+
+//         for target in opp_ships {
+//             if close_enough(our_ship, target) && cold(our_ship) && little_cooling(target) {
+//                 let target_gravity = gravity(target.position);
+//                 let (target_vx, target_vy) = (
+//                     target.velocity.0 + target_gravity.0,
+//                     target.velocity.1 + target_gravity.1,
+//                 );
+//                 let (target_x, target_y) =
+//                     (target.position.0 + target_vx, target.position.1 + target_vy);
+
+//                 if let Some(resources) = &our_ship.resources {
+//                     cmds.push(Command::Shoot(
+//                         our_ship.ship_id,
+//                         (target_x, target_y),
+//                         resources.cannon,
+//                     ));
+//                 }
+//                 break;
+//             }
+//         }
+//         cmds
+//     }
+// }
+// impl AI for Shoot {
+//     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
+//         use crate::protocol::*;
+
+//         match get_max_resources(game_response) {
+//             Some(max_resources) => {
+//                 let resource_split = (max_resources - 256 - 1 * PARAM_MULT.3) / 2;
+//                 let cannon = resource_split / PARAM_MULT.1;
+//                 let cooling = resource_split / PARAM_MULT.2;
+//                 (256, cannon, cooling, 1)
+//             },
+//             None => (1,1,1,1)
+//         }
+//     }
+
+//     fn step(&mut self, ship_ids: Vec<i64>, game_response: &GameResponse) -> Vec<Command> {
+//     }
+
+// }
+
+struct Orbiting {}
 impl AI for Orbiting {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-        use crate::protocol::*;
-
-        match get_max_resources(game_response) {
-            Some(max_resources) => {
-                let cooling =
-                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                (100,0,cooling,1)
-            }
-            None => (1,1,1,1)
-        }
-    }
-
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
+    fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
         use crate::protocol::Role::*;
 
         /// std::i64::MAX if it doesn't crash
@@ -277,11 +248,6 @@ impl AI for Orbiting {
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
-                let our_ship = game_state
-                    .ships
-                    .iter()
-                    .find(|&ship| ship.role == our_role)
-                    .unwrap();
                 let opp_ships : Vec<&Ship> = game_state
                     .ships
                     .iter()
@@ -289,8 +255,8 @@ impl AI for Orbiting {
                     .collect();
 
                 let sv = sim::SV {
-                    s: our_ship.position.into(),
-                    v: our_ship.velocity.into(),
+                    s: ship.position.into(),
+                    v: ship.velocity.into(),
                 };
                 let mut best_measure = goodness_of_drift_from(&sv, static_game_info.planet_radius);
                 let mut best_thrust = sim::XY { x: 0, y: 0 };
@@ -306,13 +272,13 @@ impl AI for Orbiting {
                 }
                 if opp_ships.len() == 1
                     && our_role == Attacker
-                    && within_detonation_range(our_ship, opp_ships[0])
+                    && within_detonation_range(ship, opp_ships[0])
                 {
-                    vec![Command::Detonate(our_ship.ship_id)]
+                    vec![Command::Detonate(ship.ship_id)]
                 } else if best_thrust == (sim::XY { x: 0, y: 0 }) {
                     vec![]
                 } else {
-                    vec![Command::Accelerate(our_ship.ship_id, best_thrust.into())]
+                    vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
                 }
             }
             _ => {
@@ -323,39 +289,61 @@ impl AI for Orbiting {
     }
 }
 
-impl AI for CloneDefender {
-     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-        use crate::protocol::*;
 
-        match get_max_resources(game_response) {
-            Some(max_resources) => {
-                let clones = 2;
-                let fuel = 150;
-                let cooling =
-                    (max_resources - (fuel * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                (150,0,cooling,2)
-            }
-            None => (1,1,1,1)
+fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
+
+        // Old Orbiter code for selecting resources:
+        // match get_max_resources(game_response) {
+        //     Some(max_resources) => {
+        //         let cooling =
+        //             (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+        //         (100,0,cooling,1)
+        //     }
+        //     None => (1,1,1,1)
+        // }
+
+    // TODO: Branch Attacker / Defender
+    match get_max_resources(game_response) {
+        Some(max_resources) => {
+            let clones = 10;
+            let fuel = 300;
+            let cooling =
+                (max_resources - (fuel * PARAM_MULT.0) - (clones * PARAM_MULT.3)) / PARAM_MULT.2;
+            (fuel, 0, cooling, clones)
         }
+        None => (1,1,1,1)
     }
+}
 
-    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
+#[derive(Default)]
+struct CloneDefender {
+    turns: u32,
+}
+impl AI for CloneDefender {
+    fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
+        let mut clones = ships.len();
+        self.turns != 1;
         let our_role = our_role(&game_response).unwrap();
-        let our_ship = find_ship(&game_response, our_role).unwrap();
-        let mut cmds = Orbiting{}.step(&game_response);
-        if let Some(resources) = &our_ship.resources {
-            if (our_role == Role::Defender) && resources.clones > 1 {
-                cmds.push(Command::Clone{
-                    ship_id: our_ship.ship_id,
-                    fuel: resources.fuel/2,
-                    cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
-                    cooling: resources.cooling/2,
-                    clones: resources.clones/2, //Is at least 1
-                })
+        let FIRST_CLONE = 0;
+        let MORE_CLONES = 10;
+
+        let mut orbiter = Orbiting{};
+        let mut cmds = orbiter.step(ships, &game_response);
+        for ship in ships {
+            if let Some(resources) = &ship.resources {
+                let time_for_clone = (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > MORE_CLONES);
+                if (our_role == Role::Defender && time_for_clone) && resources.clones > 1 {
+                    clones += 1;
+                    cmds.push(Command::Clone {
+                        ship_id: ship.ship_id,
+                        fuel: resources.fuel/2,
+                        cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
+                        cooling: resources.cooling/2,
+                        clones: resources.clones/2, //Is at least 1
+                    })
+                }
             }
-            
         }
-        // Let's just orbit
         cmds
     }
 }
@@ -368,7 +356,7 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
     let initial_game_response = post(&url, &join_msg(player_key))?;
     let mut game_response = try_parse_response(&initial_game_response);
     let resources = {
-        let (f,ca,co,cl) = ai.start(player_key, game_response);
+        let (f,ca,co,cl) = initial_resources(player_key, game_response);
         parse(&format!("[3, {}, [{}, {}, {}, {}]]", player_key, f, ca, co ,cl))
     };
     game_response = try_parse_response(&post(&url, &resources)?);
@@ -377,7 +365,11 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
         println!("Game response was:\n{:?}\ny", game_response);
         let cmds = match game_response {
             None => vec![],
-            Some(game_response) => ai.step(&game_response),
+            Some(game_response) => {
+                let our_role = our_role(&game_response).unwrap();
+                let ships = find_ships(&game_response, our_role);
+                ai.step(&ships, &game_response)
+            },
         };
         let mut commands = vnil();
         for cmd in cmds {
@@ -438,13 +430,12 @@ fn run_ais(
 fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
     match ai_str {
         Some(ai_str) => match ai_str.as_ref() {
-            "stationary" => Some(Box::from(Stationary {})),
             "orbiting" => Some(Box::from(Orbiting {})),
-            "noop" => Some(Box::from(Noop {})),
-            "shoot" => Some(Box::from(Shoot {})),
+            // "shoot" => Some(Box::from(Shoot {})),
+            "clonedef" => Some(Box::from(CloneDefender::default())),
             _ => {
-                println!("unknown ai {}, using noop", ai_str);
-                Some(Box::from(Noop {}))
+                println!("unknown ai {}, using orbiting", ai_str);
+                Some(Box::from(Orbiting {}))
             }
         },
         None => None,
