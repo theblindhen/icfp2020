@@ -393,7 +393,7 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
         Detonate(id) => parse(&format!("[1, {}]", id)),
         Shoot(id, (x, y), intensity) => parse(&format!("[2, {}, ({}, {}), {}]", id, x, y, intensity)),
         Clone{ ship_id, fuel, cannon, cooling, clones } =>
-            parse(&format!("[3, {}, [{}, {}, {}, {}]", ship_id, fuel, cannon, cooling, clones )),
+            parse(&format!("[3, {}, [{}, {}, {}, {}]]", ship_id, fuel, cannon, cooling, clones )),
  
     }
 }
