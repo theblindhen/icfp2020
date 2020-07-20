@@ -19,24 +19,37 @@ enum VarTree {
 
 #[derive(Default, Clone)]
 pub struct Env {
-    m: HashMap<Var, VarTree>,
-    id: i32,
+    v: Vec<Option<VarTree>>,
 }
 
 impl Env {
+    fn index_of_var(&self, var: Var) -> usize {
+        match var.0 {
+            -1 => 0,
+            n if n > 0 => n as usize,
+            n => panic!("Var can't be {}", n),
+        }
+    }
     fn insert(&mut self, var : Var, tree : ApTree) {
-        self.m.insert(var,  VarTree::Open(tree));
+        let index = self.index_of_var(var);
+        if !(index < self.v.len()) {
+            self.v.resize(index + 1, None);
+        }
+        self.v[index] = Some(VarTree::Open(tree));
     }
 
     fn get_and_reduce(&mut self, v: Var) -> WorkTree {
         use VarTree::*;
-        match self.m.entry(v) {
-            std::collections::hash_map::Entry::Occupied(mut occ) =>
-                match occ.get() {
+
+        let index = self.index_of_var(v);
+        let entry = self.v.get_mut(index).expect("Unknown variable");
+        match entry.as_mut() {
+            Some(mut occ) =>
+                match occ {
                     Open(aptree) => {
-                        if let Open(aptree) = occ.remove() {
+                        if let Open(aptree) = entry.take().unwrap() {
                             let wtree = reduce_left_loop(aptree, self);
-                            self.m.insert(v, Reduced(wtree.clone()));
+                            self.v[index] = Some(Reduced(wtree.clone()));
                             wtree
                         } else {
                             panic!()
@@ -44,15 +57,14 @@ impl Env {
                     },
                     Reduced(wtree) => wtree.clone(),
                 }
-            std::collections::hash_map::Entry::Vacant(_) =>
-                panic!("Unknown variable")
+            None => panic!("Unknown variable")
         }
     }
 
     fn fresh_var(&mut self) -> Var {
-        let i = self.id + 1;
-        self.id = i;
-        Var(-i-100)
+        // TODO: must only be called after the initial population, and insertion
+        // must happen right after.
+        Var(self.v.len() as i32)
     }
 }
 
