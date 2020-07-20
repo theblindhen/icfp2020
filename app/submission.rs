@@ -9,6 +9,7 @@ use std::env;
 use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
+const DETONATION_RADIUS: i64 = 11;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
@@ -286,8 +287,8 @@ impl AI for Orbiting {
             std::i64::MAX
         }
         fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
-            (ship1.position.0 - ship2.position.0).abs() <= 11
-                && (ship1.position.1 - ship2.position.1).abs() <= 11
+            (ship1.position.0 - ship2.position.0).abs() <= DETONATION_RADIUS
+                && (ship1.position.1 - ship2.position.1).abs() <= DETONATION_RADIUS
         }
         match (game_response.static_game_info, game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
