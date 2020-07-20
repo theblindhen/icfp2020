@@ -95,14 +95,14 @@ fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
 
 trait AI {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64);
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command>;
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command>;
 }
 
 struct Stationary {}
 struct Noop {}
 struct Shoot {}
 struct Orbiting {}
-struct CloneBaby {}
+struct CloneDefender {}
 
 impl AI for Stationary {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
@@ -118,7 +118,7 @@ impl AI for Stationary {
         }
     }
 
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
         let our_role = our_role(&game_response).unwrap();
         let our_ship = find_ship(&game_response, our_role).unwrap();
 
@@ -132,7 +132,7 @@ impl AI for Noop {
     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
         (1,1,1,1)
     }
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
         vec![]
     }
 }
@@ -186,7 +186,7 @@ impl AI for Shoot {
         }
     }
 
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
         fn close_enough(us: &Ship, them: &Ship) -> bool {
             let dist =
                 (us.position.0 - them.position.0).abs() + (us.position.1 - them.position.1).abs();
@@ -241,7 +241,7 @@ impl AI for Orbiting {
         }
     }
 
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
         /// std::i64::MAX if it doesn't crash
         fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
             let mut last_pos = sv.s;
@@ -255,7 +255,7 @@ impl AI for Orbiting {
             }
             std::i64::MAX
         }
-        match (game_response.static_game_info, game_response.game_state) {
+        match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
                 let our_ship = game_state
@@ -294,27 +294,40 @@ impl AI for Orbiting {
     }
 }
 
-impl AI for CloneBaby {
+impl AI for CloneDefender {
      fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
         use crate::protocol::*;
 
         match get_max_resources(game_response) {
             Some(max_resources) => {
+                let clones = 2;
+                let fuel = 150;
                 let cooling =
-                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                (100,0,cooling,1)
+                    (max_resources - (fuel * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                (150,0,cooling,2)
             }
             None => (1,1,1,1)
         }
     }
 
-    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+    fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
         let our_role = our_role(&game_response).unwrap();
         let our_ship = find_ship(&game_response, our_role).unwrap();
-
-        let (gx, gy) = gravity(our_ship.position);
-
-        vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
+        let mut cmds = Orbiting{}.step(&game_response);
+        if let Some(resources) = &our_ship.resources {
+            if (our_role == Role::Defender) && resources.clones > 1 {
+                cmds.push(Command::Clone{
+                    ship_id: our_ship.ship_id,
+                    fuel: resources.fuel/2,
+                    cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
+                    cooling: resources.cooling/2,
+                    clones: resources.clones/2, //Is at least 1
+                })
+            }
+            
+        }
+        // Let's just orbit
+        cmds
     }
 }
 
@@ -335,7 +348,7 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
         println!("Game response was:\n{:?}\ny", game_response);
         let cmds = match game_response {
             None => vec![],
-            Some(game_response) => ai.step(game_response),
+            Some(game_response) => ai.step(&game_response),
         };
         let mut commands = vnil();
         for cmd in cmds {
