@@ -224,23 +224,47 @@ trait AI {
 // }
 
 struct Orbiting {}
+impl Orbiting {
+
+    /// std::i64::MAX if it doesn't crash
+    fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
+        let mut last_pos = sv.s;
+        let mut dist_sum = 0;
+        for pos in sv.one_orbit_positions(planet_radius, 256) {
+            if sim::collided_with_planet(planet_radius, pos) {
+                return dist_sum;
+            }
+            dist_sum += sim::max_norm(pos, last_pos);
+            last_pos = pos;
+        }
+        std::i64::MAX
+    }
+
+    pub fn survives(sv: &sim::SV, planet_radius: i64) -> bool {
+        Orbiting::goodness_of_drift_from(sv, planet_radius) == std::i64::MAX
+    }
+
+    pub fn get_best_nonzero_thrust(sv: &sim::SV, planet_radius: i64) -> (sim::XY, i64) {
+        let mut best_measure = i64::MIN;
+        let mut best_thrust = None;
+        for &thrust in &sim::nonzero_thrusts_random() {
+            let mut thrusted_sv = sv.clone();
+            thrusted_sv.thrust(thrust);
+            let measure =
+                Orbiting::goodness_of_drift_from(&thrusted_sv, planet_radius);
+            if measure > best_measure {
+                best_measure = measure;
+                best_thrust = Some(thrust);
+            }
+        }
+        (best_thrust.unwrap(), best_measure)
+    }
+}
+
 impl AI for Orbiting {
     fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
         use crate::protocol::Role::*;
 
-        /// std::i64::MAX if it doesn't crash
-        fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
-            let mut last_pos = sv.s;
-            let mut dist_sum = 0;
-            for pos in sv.one_orbit_positions(planet_radius, 256) {
-                if sim::collided_with_planet(planet_radius, pos) {
-                    return dist_sum;
-                }
-                dist_sum += sim::max_norm(pos, last_pos);
-                last_pos = pos;
-            }
-            std::i64::MAX
-        }
         fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
             use crate::sim::*;
 
@@ -253,6 +277,7 @@ impl AI for Orbiting {
             (ship1_sv.s.x - ship2_sv.s.x).abs() <= DETONATION_RADIUS - 1
                 && (ship1_sv.s.y - ship2_sv.s.y).abs() <= DETONATION_RADIUS - 1
         }
+
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
@@ -266,18 +291,16 @@ impl AI for Orbiting {
                     s: ship.position.into(),
                     v: ship.velocity.into(),
                 };
-                let mut best_measure = goodness_of_drift_from(&sv, static_game_info.planet_radius);
-                let mut best_thrust = sim::XY { x: 0, y: 0 };
-                for &thrust in &sim::nonzero_thrusts_random() {
-                    let mut thrusted_sv = sv.clone();
-                    thrusted_sv.thrust(thrust);
-                    let measure =
-                        goodness_of_drift_from(&thrusted_sv, static_game_info.planet_radius);
-                    if measure > best_measure {
-                        best_measure = measure;
-                        best_thrust = thrust;
-                    }
-                }
+                let mut drift_measure =
+                    Orbiting::goodness_of_drift_from(&sv, static_game_info.planet_radius);
+                let (nonzero_thrust, nonzero_measure) =
+                    Orbiting::get_best_nonzero_thrust(&sv, static_game_info.planet_radius);
+                let best_thrust = 
+                    if nonzero_measure > drift_measure {
+                        nonzero_thrust
+                    } else {
+                        sim::XY { x: 0, y: 0 }
+                    };
 
                 // Detonate!
                 if our_role == Attacker {
@@ -322,6 +345,7 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
                         let fuel_min = 30;
                         let cooling_min = 4;
                         let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
+                        // TODO: Too many clones
                         let clones  = ((free as f64 * 0.6)/(PARAM_MULT.3 as f64)) as i64;
                         let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
                         if fuel >= fuel_min {
@@ -386,15 +410,29 @@ impl AI for CloneController {
                     } else {
                         // Attacker
                         const WAIT_DRONE_CLONES : u32 = 10; // TODO: Think
-                        if (self.turns > WAIT_DRONE_CLONES && resources.fuel > 50) {
-                            clones += 1;
-                            cmds.push(Command::Clone {
-                                ship_id: ship.ship_id,
-                                fuel: 1,
-                                cannon: 0,
-                                cooling: 0,
-                                clones: 1,
-                            })
+                        // Is there a decent move so we can get away from our clone?
+                        if let Some(sgi) = &game_response.static_game_info {
+                            let sv = sim::SV {
+                                s: ship.position.into(),
+                                v: ship.velocity.into(),
+                            };
+                            if Orbiting::survives(&sv, sgi.planet_radius) { // Will the clone survive?
+                                let (nonzero_thrust, nonzero_measure)
+                                    = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
+                                if nonzero_measure == i64::MAX {// Will we survive?
+                                    if (self.turns > WAIT_DRONE_CLONES && resources.fuel > 50) {
+                                        clones += 1;
+                                        cmds.push(Command::Clone {
+                                            ship_id: ship.ship_id,
+                                            fuel: 1,
+                                            cannon: 0,
+                                            cooling: 0,
+                                            clones: 1,
+                                        });
+                                        cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                    }
+                                }
+                            }
                         }
                     }
                 }
