@@ -537,13 +537,13 @@ fn run_ai(player : i32, ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(
                 println!("Game response was:\n{:?}\ny", game_response);
                 let def_ships = find_ships(&game_response, Role::Defender);
                 let att_ships = find_ships(&game_response, Role::Attacker);
-                println!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
+                info!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
                         def_ships.len(), unique_positions(&def_ships),
                         att_ships.len(), unique_positions(&att_ships),);
-                println!("Defender Resources: {}\nAttacker Resources: {}",
+                info!("Defender Resources: {}\nAttacker Resources: {}",
                          total_resources(&def_ships),
                          total_resources(&att_ships));
-                println!("Attacker Mother ship: {:?}\n\n",
+                info!("Attacker Mother ship: {:?}\n\n",
                          mother_ship(&att_ships));
             }
         }
