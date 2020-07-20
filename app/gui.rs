@@ -32,7 +32,7 @@ pub fn gui(prg_var: Var, env: Env, state: ValueTree, scale: i32) -> Result<(), B
     use std::cell::RefCell;
     use std::rc::Rc;
 
-    let (dim_x, dim_y) = (300 * scale, 300 * scale);
+    let (dim_x, dim_y) = (400 * scale, 300 * scale);
 
     let state_rc = Rc::from(RefCell::from(Game { prg_var, env, state, screen_offset: Point(0,0) }));
 
