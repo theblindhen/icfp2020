@@ -97,6 +97,15 @@ pub const NONZERO_THRUSTS : [XY; 8] = [
     XY { x: 1, y: -1 },
 ];
 
+pub fn nonzero_thrusts_random() -> [XY; 8] {
+    use rand::seq::SliceRandom;
+    use rand::thread_rng;
+    let mut rng = thread_rng();
+    let mut thrusts = NONZERO_THRUSTS.clone();
+    thrusts.shuffle(&mut rng);
+    thrusts
+}
+
 pub struct OneOrbitPositions{
     sv: SV,
     planet_radius: i64,

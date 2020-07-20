@@ -268,7 +268,7 @@ impl AI for Orbiting {
                 };
                 let mut best_measure = goodness_of_drift_from(&sv, static_game_info.planet_radius);
                 let mut best_thrust = sim::XY { x: 0, y: 0 };
-                for &thrust in &sim::NONZERO_THRUSTS {
+                for &thrust in &sim::nonzero_thrusts_random() {
                     let mut thrusted_sv = sv.clone();
                     thrusted_sv.thrust(thrust);
                     let measure =
@@ -299,28 +299,37 @@ impl AI for Orbiting {
 
 
 fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-
-        // Old Orbiter code for selecting resources:
-        // match get_max_resources(game_response) {
-        //     Some(max_resources) => {
-        //         let cooling =
-        //             (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-        //         (100,0,cooling,1)
-        //     }
-        //     None => (1,1,1,1)
-        // }
-
-    // TODO: Branch Attacker / Defender
-    match get_max_resources(game_response) {
-        Some(max_resources) => {
-            let clones = 10;
-            let fuel = 300;
-            let cooling =
-                (max_resources - (fuel * PARAM_MULT.0) - (clones * PARAM_MULT.3)) / PARAM_MULT.2;
-            (fuel, 0, cooling, clones)
+    if let Some(game_response) = game_response {
+        match our_role(&game_response) {
+            Some(Role::Attacker) => {
+                // Pure Orbiter
+                match get_max_resources(&game_response) {
+                    Some(max_resources) => {
+                        let cooling =
+                            (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                        (100,0,cooling,1)
+                    }
+                    None => (1,1,1,1)
+                }
+            }
+            _ => { // Probably defender
+                match get_max_resources(&game_response) {
+                    Some(max_resources) => {
+                        let clones = 10;
+                        let fuel = 300;
+                        let cooling =
+                            (max_resources - (fuel * PARAM_MULT.0) - (clones * PARAM_MULT.3)) / PARAM_MULT.2;
+                        (fuel, 0, cooling, clones)
+                    }
+                    None => (1,1,1,1)
+                }
+            }
         }
-        None => (1,1,1,1)
+    } else {
+        // During the orgs testing phase
+        (1,1,1,1)
     }
+
 }
 
 #[derive(Default)]
@@ -330,7 +339,7 @@ struct CloneDefender {
 impl AI for CloneDefender {
     fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
         let mut clones = ships.len();
-        self.turns != 1;
+        self.turns += 1;
         let our_role = our_role(&game_response).unwrap();
         let FIRST_CLONE = 0;
         let MORE_CLONES = 10;
@@ -340,7 +349,7 @@ impl AI for CloneDefender {
         for ship in ships {
             if let Some(resources) = &ship.resources {
                 let time_for_clone = (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > MORE_CLONES);
-                if (our_role == Role::Defender && time_for_clone) && resources.clones > 1 {
+                if our_role == Role::Defender && time_for_clone && resources.clones > 1 {
                     clones += 1;
                     cmds.push(Command::Clone {
                         ship_id: ship.ship_id,
@@ -472,7 +481,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(CloneDefender::default()));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {

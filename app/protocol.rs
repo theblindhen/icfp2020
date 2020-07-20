@@ -398,8 +398,12 @@ pub fn flatten_command(cmd: Command) -> ValueTree {
     }
 }
 
-pub fn get_max_resources(game_response: Option<GameResponse>) -> Option<i64> {
-    game_response.and_then(|x| x.static_game_info.and_then(|y| Some(y.max_resources)))
+pub fn get_max_resources(game_response: &GameResponse) -> Option<i64> {
+    if let Some(sgi) = &game_response.static_game_info {
+        Some(sgi.max_resources)
+    } else {
+        None
+    }
 }
 
 #[cfg(test)]
