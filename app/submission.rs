@@ -9,7 +9,7 @@ use std::env;
 use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
-const DETONATION_RADIUS: i64 = 11;
+const DETONATION_RADIUS: i64 = 4;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
@@ -119,6 +119,14 @@ fn find_ships(game_response: &GameResponse, role: Role) -> Vec<&Ship> {
     }
 }
 
+fn unique_positions(ships: &Vec<&Ship>) -> i64 {
+    let pos_set : std::collections::hash_set::HashSet<(i64,i64)> =
+        ships.into_iter()
+        .map(|s| s.position)
+        .collect();
+    pos_set.len() as i64
+}
+
 fn our_role(game_response: &GameResponse) -> Option<Role> {
     match &game_response.static_game_info {
         Some(game_info) => Some(game_info.role),
@@ -135,6 +143,31 @@ fn inverse_role(role: Role) -> Role {
     }
 }
 
+fn mother_ship<'a>(ships: &Vec<&'a Ship>) -> Option<&'a Ship> {
+    for ship in ships {
+        if ship.ship_id <= 1 {
+            return Some(ship)
+        }
+    }
+    None
+}
+
+fn resource_score(ship: &Ship) -> i64 {
+    if let Some(resources) = &ship.resources {
+        resources.fuel + 4*resources.cannon + 12*resources.cooling + 2*resources.clones
+    } else {
+        0
+    }
+}
+
+
+fn total_resources(ships: &Vec<&Ship>) -> i64 {
+    let mut sum = 0;
+    for ship in ships {
+        sum += resource_score(ship);
+    }
+    sum
+}
 
 trait AI {
     fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
@@ -224,23 +257,47 @@ trait AI {
 // }
 
 struct Orbiting {}
+impl Orbiting {
+
+    /// std::i64::MAX if it doesn't crash
+    fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
+        let mut last_pos = sv.s;
+        let mut dist_sum = 0;
+        for pos in sv.one_orbit_positions(planet_radius, 384) {
+            if sim::collided_with_planet(planet_radius, pos) {
+                return dist_sum;
+            }
+            dist_sum += sim::max_norm(pos, last_pos);
+            last_pos = pos;
+        }
+        std::i64::MAX
+    }
+
+    pub fn survives(sv: &sim::SV, planet_radius: i64) -> bool {
+        Orbiting::goodness_of_drift_from(sv, planet_radius) == std::i64::MAX
+    }
+
+    pub fn get_best_nonzero_thrust(sv: &sim::SV, planet_radius: i64) -> (sim::XY, i64) {
+        let mut best_measure = i64::MIN;
+        let mut best_thrust = None;
+        for &thrust in &sim::nonzero_thrusts_random() {
+            let mut thrusted_sv = sv.clone();
+            thrusted_sv.thrust(thrust);
+            let measure =
+                Orbiting::goodness_of_drift_from(&thrusted_sv, planet_radius);
+            if measure > best_measure {
+                best_measure = measure;
+                best_thrust = Some(thrust);
+            }
+        }
+        (best_thrust.unwrap(), best_measure)
+    }
+}
+
 impl AI for Orbiting {
     fn step_a_ship(&mut self, ship: &Ship, game_response: &GameResponse) -> Vec<Command> {
         use crate::protocol::Role::*;
 
-        /// std::i64::MAX if it doesn't crash
-        fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
-            let mut last_pos = sv.s;
-            let mut dist_sum = 0;
-            for pos in sv.one_orbit_positions(planet_radius, 256) {
-                if sim::collided_with_planet(planet_radius, pos) {
-                    return dist_sum;
-                }
-                dist_sum += sim::max_norm(pos, last_pos);
-                last_pos = pos;
-            }
-            std::i64::MAX
-        }
         fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
             use crate::sim::*;
 
@@ -253,6 +310,17 @@ impl AI for Orbiting {
             (ship1_sv.s.x - ship2_sv.s.x).abs() <= DETONATION_RADIUS - 1
                 && (ship1_sv.s.y - ship2_sv.s.y).abs() <= DETONATION_RADIUS - 1
         }
+
+        fn detonation_score(ship: &Ship, other_ships: &Vec<&Ship>) -> i64 {
+            let mut sum = 0;
+            for other_ship in other_ships {
+                if within_detonation_range(ship, other_ship) {
+                    sum += resource_score(other_ship);
+                }
+            }
+            sum
+        }
+
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
@@ -266,89 +334,183 @@ impl AI for Orbiting {
                     s: ship.position.into(),
                     v: ship.velocity.into(),
                 };
-                let mut best_measure = goodness_of_drift_from(&sv, static_game_info.planet_radius);
-                let mut best_thrust = sim::XY { x: 0, y: 0 };
-                for &thrust in &sim::NONZERO_THRUSTS {
-                    let mut thrusted_sv = sv.clone();
-                    thrusted_sv.thrust(thrust);
-                    let measure =
-                        goodness_of_drift_from(&thrusted_sv, static_game_info.planet_radius);
-                    if measure > best_measure {
-                        best_measure = measure;
-                        best_thrust = thrust;
+
+                // Detonate!
+                if our_role == Attacker {
+                    if let Some(resources) = &ship.resources {
+                        // Destroy the last ship
+                        if (opp_ships.len() == 1
+                            && within_detonation_range(ship, opp_ships[0])) {
+                            return vec![Command::Detonate(ship.ship_id)]
+                        } else if (resources.fuel < 10) {
+                            let our_ships = find_ships(&game_response, our_role);
+                            let kill_ratio = detonation_score(&ship, &opp_ships) as f64 / total_resources(&opp_ships) as f64; 
+                            let mut loss_ratio = detonation_score(&ship, &our_ships) as f64 / total_resources(&our_ships) as f64;
+                            if let Some(mother) = mother_ship(&our_ships) {
+                                if within_detonation_range(ship, mother) && ship.ship_id != mother.ship_id {
+                                    loss_ratio = 1.;
+                                }
+                            };
+                            if  1.1 * kill_ratio > loss_ratio {
+                                return vec![Command::Detonate(ship.ship_id)]
+                            }
+                        }
                     }
                 }
-                if opp_ships.len() == 1
-                    && our_role == Attacker
-                    && within_detonation_range(ship, opp_ships[0])
-                {
-                    vec![Command::Detonate(ship.ship_id)]
-                } else if best_thrust == (sim::XY { x: 0, y: 0 }) {
-                    vec![]
-                } else {
-                    vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
+
+                // Orbit
+                if let Some(resources) = &ship.resources {
+                    if resources.fuel > 0 {
+                        let mut drift_measure = {
+                            use rand::seq::SliceRandom;
+                            use rand::thread_rng;
+                            use rand_core::RngCore;
+                            let mut rng = thread_rng();
+                            if ship.heat < 60 || rng.next_u32() % 100 < 90 {
+                                Orbiting::goodness_of_drift_from(&sv, static_game_info.planet_radius)
+                            } else {
+                                // Boogie!
+                                i64::MIN + 1
+                            }
+                        };
+                        let (nonzero_thrust, nonzero_measure) =
+                            Orbiting::get_best_nonzero_thrust(&sv, static_game_info.planet_radius);
+                        let best_thrust = 
+                            if nonzero_measure > drift_measure {
+                                nonzero_thrust
+                            } else {
+                                sim::XY { x: 0, y: 0 }
+                            };
+                        if best_thrust != (sim::XY { x: 0, y: 0 }) {
+                            return vec![Command::Accelerate(ship.ship_id, best_thrust.into())]
+                        }
+                    }
                 }
             }
             _ => {
                 error!("Error in survivor ai: no static game info or game state");
-                vec![]
             }
         }
+        vec![]
     }
 }
 
 
 fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
-
-        // Old Orbiter code for selecting resources:
-        // match get_max_resources(game_response) {
-        //     Some(max_resources) => {
-        //         let cooling =
-        //             (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-        //         (100,0,cooling,1)
-        //     }
-        //     None => (1,1,1,1)
-        // }
-
-    // TODO: Branch Attacker / Defender
-    match get_max_resources(game_response) {
-        Some(max_resources) => {
-            let clones = 10;
-            let fuel = 300;
-            let cooling =
-                (max_resources - (fuel * PARAM_MULT.0) - (clones * PARAM_MULT.3)) / PARAM_MULT.2;
-            (fuel, 0, cooling, clones)
+    if let Some(game_response) = game_response {
+        match our_role(&game_response) {
+            Some(Role::Attacker) => {
+                match get_max_resources(&game_response) {
+                    Some(max_resources) => {
+                        let fuel_min = 50;
+                        let cooling_min = 4;
+                        let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
+                        let clones  = ((free as f64 * 0.3)/(PARAM_MULT.3 as f64)) as i64;
+                        let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
+                        if fuel >= fuel_min {
+                            (fuel, 0, cooling_min, clones)
+                        } else {
+                            error!("This isn't good!");
+                            (max_resources-2, 0, 0, 1)
+                        }
+                              
+                    }
+                    None => (1,1,1,1)
+                }
+            }
+            _ => { // Probably defender
+                match get_max_resources(&game_response) {
+                    Some(max_resources) => {
+                        let clones = 10;
+                        let fuel = 300;
+                        let cooling =
+                            (max_resources - (fuel * PARAM_MULT.0) - (clones * PARAM_MULT.3)) / PARAM_MULT.2;
+                        (fuel, 0, cooling, clones)
+                    }
+                    None => (1,1,1,1)
+                }
+            }
         }
-        None => (1,1,1,1)
+    } else {
+        // During the orgs testing phase
+        (1,1,1,1)
     }
+
 }
 
 #[derive(Default)]
-struct CloneDefender {
+struct CloneController {
     turns: u32,
+
 }
-impl AI for CloneDefender {
+impl AI for CloneController {
     fn step(&mut self, ships: &Vec<&Ship>, game_response: &GameResponse) -> Vec<Command> {
         let mut clones = ships.len();
-        self.turns != 1;
+        self.turns += 1;
         let our_role = our_role(&game_response).unwrap();
-        let FIRST_CLONE = 0;
-        let MORE_CLONES = 10;
 
         let mut orbiter = Orbiting{};
-        let mut cmds = orbiter.step(ships, &game_response);
-        for ship in ships {
-            if let Some(resources) = &ship.resources {
-                let time_for_clone = (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > MORE_CLONES);
-                if (our_role == Role::Defender && time_for_clone) && resources.clones > 1 {
-                    clones += 1;
-                    cmds.push(Command::Clone {
-                        ship_id: ship.ship_id,
-                        fuel: resources.fuel/2,
-                        cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
-                        cooling: resources.cooling/2,
-                        clones: resources.clones/2, //Is at least 1
-                    })
+        let mut cmds = vec![];
+        // let mut cmds = orbiter.step(ships, &game_response);
+        if let Some(sgi) = &game_response.static_game_info {
+            for ship in ships {
+                let mut moved = false;
+                if let Some(resources) = &ship.resources {
+                    if resources.clones > 1 && ship.heat <= 60 {
+                        if our_role == Role::Defender {
+                            const FIRST_CLONE : u32 = 0;
+                            const WAIT_MORE_CLONES : u32 = 10; // TODO: Think
+                            if (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > WAIT_MORE_CLONES) {
+                                let sv = sim::SV {
+                                    s: ship.position.into(),
+                                    v: ship.velocity.into(),
+                                };
+                                let (nonzero_thrust, nonzero_measure)
+                                    = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
+                                if nonzero_measure == i64::MAX {// Will we survive?
+                                    clones += 1;
+                                    cmds.push(Command::Clone {
+                                        ship_id: ship.ship_id,
+                                        fuel: resources.fuel/2,
+                                        cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
+                                        cooling: resources.cooling/2,
+                                        clones: resources.clones/2, //Is at least 1
+                                    });
+                                    cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                    moved = true;
+                                }
+                            }
+                        } else {
+                            // Attacker
+                            const WAIT_DRONE_CLONES : u32 = 10; // TODO: Think
+                            // Is there a decent move so we can get away from our clone?
+                            let sv = sim::SV {
+                                s: ship.position.into(),
+                                v: ship.velocity.into(),
+                            };
+                            if sim::survives_drift(&sv, sgi.planet_radius) > 25 { // Will the clone survive?
+                                let (nonzero_thrust, nonzero_measure)
+                                    = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
+                                if nonzero_measure == i64::MAX {// Will we survive?
+                                    if (self.turns > WAIT_DRONE_CLONES) {
+                                        clones += 1;
+                                        cmds.push(Command::Clone {
+                                            ship_id: ship.ship_id,
+                                            fuel: 2,
+                                            cannon: 0,
+                                            cooling: 0,
+                                            clones: 1,
+                                        });
+                                        cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                        moved = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if !moved {
+                    cmds.append(&mut orbiter.step(&vec![ship], &game_response));
                 }
             }
         }
@@ -358,7 +520,7 @@ impl AI for CloneDefender {
 
 
 
-fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
+fn run_ai(player : i32, ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
     let initial_game_response = post(&url, &join_msg(player_key))?;
@@ -370,7 +532,21 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
     game_response = try_parse_response(&post(&url, &resources)?);
 
     loop {
-        println!("Game response was:\n{:?}\ny", game_response);
+        if player == 0 {
+            if let Some(game_response) = &game_response {
+                println!("Game response was:\n{:?}\ny", game_response);
+                let def_ships = find_ships(&game_response, Role::Defender);
+                let att_ships = find_ships(&game_response, Role::Attacker);
+                println!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
+                        def_ships.len(), unique_positions(&def_ships),
+                        att_ships.len(), unique_positions(&att_ships),);
+                println!("Defender Resources: {}\nAttacker Resources: {}",
+                         total_resources(&def_ships),
+                         total_resources(&att_ships));
+                println!("Attacker Mother ship: {:?}\n\n",
+                         mother_ship(&att_ships));
+            }
+        }
         let cmds = match game_response {
             None => vec![],
             Some(game_response) => {
@@ -420,12 +596,12 @@ fn run_ais(
 
     let url1 = String::from(url);
     let thr1 = std::thread::spawn(move || {
-        let err = run_ai(&mut *ai1, &url1, player_key1);
+        let err = run_ai(0, &mut *ai1, &url1, player_key1);
         println!("an error occured while running AI 1: {:?}", err);
     });
     let url2 = String::from(url);
     let thr2 = std::thread::spawn(move || {
-        let err = run_ai(&mut *ai2, &url2, player_key2);
+        let err = run_ai(1, &mut *ai2, &url2, player_key2);
         println!("an error occured while running AI 2: {:?}", err);
     });
 
@@ -440,7 +616,7 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
         Some(ai_str) => match ai_str.as_ref() {
             "orbiting" => Some(Box::from(Orbiting {})),
             // "shoot" => Some(Box::from(Shoot {})),
-            "clonedef" => Some(Box::from(CloneDefender::default())),
+            "clones" => Some(Box::from(CloneController::default())),
             _ => {
                 println!("unknown ai {}, using orbiting", ai_str);
                 Some(Box::from(Orbiting {}))
@@ -472,12 +648,12 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(CloneController::default()));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {
             Some(mut ai2) => run_ais(ai1, ai2, &url)?,
-            None => run_ai(&mut *ai1, &url, player_key)?,
+            None => run_ai(0, &mut *ai1, &url, player_key)?,
         }
     }
 
