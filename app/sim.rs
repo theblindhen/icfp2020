@@ -43,6 +43,21 @@ impl SV {
     }
 }
 
+pub fn survives_drift(sv: &SV, planet_radius: i64) -> i64 {
+    let mut sv = sv.clone();
+    let mut turns = 0;
+    loop {
+        if collided_with_planet(planet_radius, sv.s) {
+            return turns;
+        }
+        sv.drift();
+        turns += 1;
+        if turns > 384 {
+            return turns;
+        }
+    }
+}
+
 pub fn manhattan(pos1: XY, pos2: XY) -> i64 {
     (pos2.x - pos1.x).abs() + (pos2.y - pos1.y).abs()
 }

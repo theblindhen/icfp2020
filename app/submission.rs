@@ -441,7 +441,7 @@ impl AI for CloneController {
                                 s: ship.position.into(),
                                 v: ship.velocity.into(),
                             };
-                            if Orbiting::survives(&sv, sgi.planet_radius) { // Will the clone survive?
+                            if sim::survives_drift(&sv, sgi.planet_radius) > 100 { // Will the clone survive?
                                 let (nonzero_thrust, nonzero_measure)
                                     = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
                                 if nonzero_measure == i64::MAX {// Will we survive?
