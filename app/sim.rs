@@ -38,10 +38,17 @@ impl SV {
             sv: self.clone(),
             planet_radius,
             steps_left: max_steps,
-            last_quadrant: quadrant_of(self.s),
-            quadrants_left: 5, // we'll visit one quadrant twice
+            quadrants_visited: 0,
         }
     }
+}
+
+pub fn manhattan(pos1: XY, pos2: XY) -> i64 {
+    (pos2.x - pos1.x).abs() + (pos2.y - pos1.y).abs()
+}
+
+pub fn max_norm(pos1: XY, pos2: XY) -> i64 {
+    (pos2.x - pos1.x).abs().max((pos2.y - pos1.y).abs())
 }
 
 pub fn collided_with_planet(planet_radius: i64, pos: XY) -> bool {
@@ -94,8 +101,7 @@ pub struct OneOrbitPositions{
     sv: SV,
     planet_radius: i64,
     steps_left: i64,
-    last_quadrant: u8,
-    quadrants_left: u8,
+    quadrants_visited: u8,
 }
 
 impl Iterator for OneOrbitPositions {
@@ -107,13 +113,10 @@ impl Iterator for OneOrbitPositions {
         } else {
             self.sv.drift();
             let quadrant = quadrant_of(self.sv.s);
-            if self.last_quadrant != quadrant {
-                self.last_quadrant = quadrant;
-                self.quadrants_left -= 1;
-            }
+            self.quadrants_visited |= (1 << quadrant);
             self.steps_left -= 1;
 
-            if self.steps_left <= 0 || self.quadrants_left <= 0 {
+            if self.steps_left <= 0 || self.quadrants_visited == 0b11110 {
                 None
             } else {
                 Some(self.sv.s)

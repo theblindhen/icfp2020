@@ -53,17 +53,6 @@ fn multiplayer_msg() -> ValueTree {
     parse(&format!("[1, 0]"))
 }
 
-fn start_msg(player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
-    match get_max_resources(game_response) {
-        Some(max_resources) => parse(&format!(
-            "[3, {}, [{}, 0, 16, 1]]",
-            player_key,
-            max_resources - 2 - (12 * 16)
-        )),
-        None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
-    }
-}
-
 fn run_interactively(url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     let mut buf = String::new();
     let mut stdin = std::io::stdin();
@@ -106,7 +95,7 @@ fn try_parse_response(response: &ValueTree) -> Option<GameResponse> {
 }
 
 trait AI {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree;
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64);
     fn step(&mut self, game_response: GameResponse) -> Vec<Command>;
 }
 
@@ -114,18 +103,19 @@ struct Stationary {}
 struct Noop {}
 struct Shoot {}
 struct Orbiting {}
+struct CloneBaby {}
 
 impl AI for Stationary {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
         use crate::protocol::*;
 
         match get_max_resources(game_response) {
             Some(max_resources) => {
                 let cooling =
                     (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
+                (100, 0, cooling as i64, 1)
             }
-            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+            None => (1,1,1,1)
         }
     }
 
@@ -140,10 +130,9 @@ impl AI for Stationary {
 }
 
 impl AI for Noop {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
-        start_msg(player_key, game_response)
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
+        (1,1,1,1)
     }
-
     fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
         vec![]
     }
@@ -184,7 +173,7 @@ fn inverse_role(role: Role) -> Role {
 }
 
 impl AI for Shoot {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
         use crate::protocol::*;
 
         match get_max_resources(game_response) {
@@ -192,12 +181,9 @@ impl AI for Shoot {
                 let resource_split = (max_resources - 256 - 1 * PARAM_MULT.3) / 2;
                 let cannon = resource_split / PARAM_MULT.1;
                 let cooling = resource_split / PARAM_MULT.2;
-                parse(&format!(
-                    "[3, {}, [256, {}, {}, 1]]",
-                    player_key, cannon, cooling
-                ))
-            }
-            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+                (256, cannon, cooling, 1)
+            },
+            None => (1,1,1,1)
         }
     }
 
@@ -255,16 +241,16 @@ impl AI for Shoot {
 }
 
 impl AI for Orbiting {
-    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> ValueTree {
+    fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
         use crate::protocol::*;
 
         match get_max_resources(game_response) {
             Some(max_resources) => {
                 let cooling =
                     (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
-                parse(&format!("[3, {}, [100, 0, {}, 1]]", player_key, cooling))
+                (100,0,cooling,1)
             }
-            None => parse(&format!("[3, {}, [1, 1, 1, 1]]", player_key)),
+            None => (1,1,1,1)
         }
     }
 
@@ -273,16 +259,14 @@ impl AI for Orbiting {
 
         /// std::i64::MAX if it doesn't crash
         fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
-            let (mut xmin, mut xmax) = (sv.s.x, sv.s.x);
-            let (mut ymin, mut ymax) = (sv.s.y, sv.s.y);
+            let mut last_pos = sv.s;
+            let mut dist_sum = 0;
             for pos in sv.one_orbit_positions(planet_radius, 256) {
                 if sim::collided_with_planet(planet_radius, pos) {
-                    return (xmax - xmin) + (ymax - ymin);
+                    return dist_sum;
                 }
-                xmin = xmin.min(pos.x);
-                xmax = xmax.max(pos.x);
-                ymin = ymin.min(pos.y);
-                ymax = ymax.max(pos.y);
+                dist_sum += sim::max_norm(pos, last_pos);
+                last_pos = pos;
             }
             std::i64::MAX
         }
@@ -339,12 +323,42 @@ impl AI for Orbiting {
     }
 }
 
+impl AI for CloneBaby {
+     fn start(&mut self, player_key: i64, game_response: Option<GameResponse>) -> (i64,i64,i64,i64) {
+        use crate::protocol::*;
+
+        match get_max_resources(game_response) {
+            Some(max_resources) => {
+                let cooling =
+                    (max_resources - (100 * PARAM_MULT.0) - (1 * PARAM_MULT.3)) / PARAM_MULT.2;
+                (100,0,cooling,1)
+            }
+            None => (1,1,1,1)
+        }
+    }
+
+    fn step(&mut self, game_response: GameResponse) -> Vec<Command> {
+        let our_role = our_role(&game_response).unwrap();
+        let our_ship = find_ship(&game_response, our_role).unwrap();
+
+        let (gx, gy) = gravity(our_ship.position);
+
+        vec![Command::Accelerate(our_ship.ship_id, (gx, gy))]
+    }
+}
+
+
+
 fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
     let initial_game_response = post(&url, &join_msg(player_key))?;
     let mut game_response = try_parse_response(&initial_game_response);
-    game_response = try_parse_response(&post(&url, &ai.start(player_key, game_response))?);
+    let resources = {
+        let (f,ca,co,cl) = ai.start(player_key, game_response);
+        parse(&format!("[3, {}, [{}, {}, {}, {}]]", player_key, f, ca, co ,cl))
+    };
+    game_response = try_parse_response(&post(&url, &resources)?);
 
     loop {
         println!("Game response was:\n{:?}\ny", game_response);
@@ -416,8 +430,8 @@ fn get_ai(ai_str: Option<String>) -> Option<Box<dyn AI + Send>> {
             "noop" => Some(Box::from(Noop {})),
             "shoot" => Some(Box::from(Shoot {})),
             _ => {
-                println!("unknown ai {}, using default", ai_str);
-                Some(Box::from(Shoot {}))
+                println!("unknown ai {}, using noop", ai_str);
+                Some(Box::from(Noop {}))
             }
         },
         None => None,
@@ -446,7 +460,7 @@ pub fn main(
         post(&url, &join_msg(player_key))?;
         run_interactively(&url, player_key)?
     } else {
-        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Shoot {}));
+        let mut ai1 = get_ai(ai1).unwrap_or(Box::from(Orbiting {}));
         let mut ai2 = get_ai(ai2);
 
         match ai2 {
