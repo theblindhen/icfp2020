@@ -3,6 +3,7 @@ use std::fmt;
 use crate::aplang::*;
 use crate::nom_helpers::*;
 use std::iter;
+use std::rc::Rc;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum ValueTree {
@@ -59,7 +60,7 @@ impl From<&ValueTree> for ApTree {
         use ApTree::{T, Ap};
         match t {
             ValueTree::VNil => T(Token::Nil),
-            ValueTree::VCons(pair) => Ap(Box::new((Ap(Box::new((T(Token::Cons), (&pair.as_ref().0).into()))), (&pair.as_ref().1).into()))),
+            ValueTree::VCons(pair) => Ap(Rc::from((Ap(Rc::from((T(Token::Cons), (&pair.as_ref().0).into()))), (&pair.as_ref().1).into()))),
             ValueTree::VInt(i) => T(Token::Int(i.clone())),
         }
     }

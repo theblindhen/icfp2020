@@ -1,5 +1,7 @@
 // Lexer types
 
+use std::rc::Rc;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Var (pub i32);
 
@@ -91,7 +93,7 @@ pub type Program = Vec<Assignment>;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApTree {
-    Ap(Box<(ApTree,ApTree)>),
+    Ap(Rc<(ApTree,ApTree)>),
     T(Token),
     // List(Vec<ApTree>)
 }
@@ -105,7 +107,7 @@ pub enum ApArity<'a> {
 }
 
 pub fn ap(arg1: ApTree, arg2: ApTree) -> ApTree {
-    return ApTree::Ap(Box::from((arg1, arg2)));
+    return ApTree::Ap(Rc::from((arg1, arg2)));
 }
 
 pub fn nil() -> ApTree {

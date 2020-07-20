@@ -242,8 +242,16 @@ impl AI for Orbiting {
             std::i64::MAX
         }
         fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
-            (ship1.position.0 - ship2.position.0).abs() <= DETONATION_RADIUS
-                && (ship1.position.1 - ship2.position.1).abs() <= DETONATION_RADIUS
+            use crate::sim::*;
+
+            let mut ship1_sv = SV { s: ship1.position.into(), v: ship1.velocity.into() };
+            let mut ship2_sv = SV { s: ship2.position.into(), v: ship2.velocity.into() };
+
+            ship1_sv.drift();
+            ship2_sv.drift();
+
+            (ship1_sv.s.x - ship2_sv.s.x).abs() <= DETONATION_RADIUS - 1
+                && (ship1_sv.s.y - ship2_sv.s.y).abs() <= DETONATION_RADIUS - 1
         }
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {

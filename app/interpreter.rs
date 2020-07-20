@@ -99,10 +99,13 @@ fn reduce_tree(tree: ApTree, env: &mut Env) -> Reduction {
 
     match tree {
         T(Token::V(v)) => Step(env.get_and_reduce(v)),
-        T(token) => Id(WorkT(token)),
+        T(token) => Id(WorkT(token.clone())),
         Ap(body) => {
-            let (oper, arg) = *body;
-            Step(explicit_ap(reduce_left_loop(oper, env), arg))
+            let (oper, arg) = body.as_ref();
+            Step(explicit_ap(
+                reduce_left_loop(oper.clone(), env),
+                arg.clone(),
+            ))
         }
     }
 }
@@ -117,7 +120,6 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
 
         // Unary functions
         Ap1(Nil, _) => Step(WorkT(Token::True)),
-
         Ap1(fun, arg) if is_eager_fun1(&fun) => match (fun, reduce_left_loop(arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
@@ -341,7 +343,7 @@ fn interact0(prg_var: Var, env: &mut Env, mut state: ValueTree, point: draw::Poi
                                     let data = pair.0;
                                     trace!("data = {:?}", data);
                                     assert_eq!(pair.1, ValueTree::VNil);
-                                    (flag, new_state, data)
+                                    (flag, new_state.clone(), data.clone())
                                 },
                                 _ => panic!("interact: no data"),
                             }
@@ -439,7 +441,7 @@ mod test {
         env.insert(Var(99), tree_of_str("ap :99 :99")); // diverges
         assert_eq!(reduce_left_loop(tree_of_str("ap inc 0"), &mut env), wint(1));
         // assert_eq!(
-        //     reduce_left_loop(&tree_of_str("ap add ap inc 0"), &mut env),
+        //     reduce_left_loop(tree_of_str("ap add ap inc 0"), &mut env),
         //     wap1(Add, int(1))
         // );
         assert_eq!(
