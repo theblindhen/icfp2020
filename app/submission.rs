@@ -9,7 +9,7 @@ use std::env;
 use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
-const DETONATION_RADIUS: i64 = 11;
+const DETONATION_RADIUS: i64 = 4;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
@@ -117,6 +117,14 @@ fn find_ships(game_response: &GameResponse, role: Role) -> Vec<&Ship> {
             .collect(),
         None => vec![],
     }
+}
+
+fn unique_positions(ships: &Vec<&Ship>) -> i64 {
+    let pos_set : std::collections::hash_set::HashSet<(i64,i64)> =
+        ships.into_iter()
+        .map(|s| s.position)
+        .collect();
+    pos_set.len() as i64
 }
 
 fn our_role(game_response: &GameResponse) -> Option<Role> {
@@ -380,10 +388,10 @@ fn initial_resources(player_key: i64, game_response: Option<GameResponse>) -> (i
             Some(Role::Attacker) => {
                 match get_max_resources(&game_response) {
                     Some(max_resources) => {
-                        let fuel_min = 50;
+                        let fuel_min = 30;
                         let cooling_min = 4;
                         let free = max_resources - fuel_min - cooling_min * PARAM_MULT.2;
-                        let clones  = ((free as f64 * 0.5)/(PARAM_MULT.3 as f64)) as i64;
+                        let clones  = ((free as f64 * 0.4)/(PARAM_MULT.3 as f64)) as i64;
                         let fuel = free - PARAM_MULT.3*clones - PARAM_MULT.2*cooling_min;
                         if fuel >= fuel_min {
                             (fuel, 0, cooling_min, clones)
@@ -470,7 +478,7 @@ impl AI for CloneController {
                                 let (nonzero_thrust, nonzero_measure)
                                     = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
                                 if nonzero_measure == i64::MAX {// Will we survive?
-                                    if (self.turns > WAIT_DRONE_CLONES && resources.fuel > 50) {
+                                    if (self.turns > WAIT_DRONE_CLONES) {
                                         clones += 1;
                                         cmds.push(Command::Clone {
                                             ship_id: ship.ship_id,
@@ -498,7 +506,7 @@ impl AI for CloneController {
 
 
 
-fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
+fn run_ai(player : i32, ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std::error::Error>> {
     use crate::protocol::*;
 
     let initial_game_response = post(&url, &join_msg(player_key))?;
@@ -510,7 +518,20 @@ fn run_ai(ai: &mut dyn AI, url: &str, player_key: i64) -> Result<(), Box<dyn std
     game_response = try_parse_response(&post(&url, &resources)?);
 
     loop {
-        println!("Game response was:\n{:?}\ny", game_response);
+        if player == 0 {
+            // if let Some(game_response) = &game_response {
+            //     println!("Game response was:\n{:?}\ny", game_response);
+            //     let def_ships = find_ships(&game_response, Role::Defender);
+            //     let att_ships = find_ships(&game_response, Role::Attacker);
+            //     println!("Number of Defenders: {} at {} positions \nNumber of Attackers: {} at {} positions",
+            //             def_ships.len(), unique_positions(&def_ships),
+            //             att_ships.len(), unique_positions(&att_ships),);
+            //     println!("Defender Resources: {}\nAttacker Resources: {}",
+            //              total_resources(&def_ships),
+            //              total_resources(&att_ships));
+
+            // }
+        }
         let cmds = match game_response {
             None => vec![],
             Some(game_response) => {
@@ -560,12 +581,12 @@ fn run_ais(
 
     let url1 = String::from(url);
     let thr1 = std::thread::spawn(move || {
-        let err = run_ai(&mut *ai1, &url1, player_key1);
+        let err = run_ai(0, &mut *ai1, &url1, player_key1);
         println!("an error occured while running AI 1: {:?}", err);
     });
     let url2 = String::from(url);
     let thr2 = std::thread::spawn(move || {
-        let err = run_ai(&mut *ai2, &url2, player_key2);
+        let err = run_ai(1, &mut *ai2, &url2, player_key2);
         println!("an error occured while running AI 2: {:?}", err);
     });
 
@@ -617,7 +638,7 @@ pub fn main(
 
         match ai2 {
             Some(mut ai2) => run_ais(ai1, ai2, &url)?,
-            None => run_ai(&mut *ai1, &url, player_key)?,
+            None => run_ai(0, &mut *ai1, &url, player_key)?,
         }
     }
 
