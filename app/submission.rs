@@ -9,6 +9,7 @@ use std::env;
 use std::io::BufRead;
 
 const APIKEY: &'static str = "91bf0ff907084b7595841e534276a415";
+const DETONATION_RADIUS: i64 = 11;
 
 fn post(url: &str, body: &ValueTree) -> Result<ValueTree, Box<dyn std::error::Error>> {
     let encoded_body = modulate(&body);
@@ -196,12 +197,16 @@ impl AI for Shoot {
         fn cold(ship: &Ship) -> bool {
             if let Some(resources) = &ship.resources {
                 ship.heat + resources.cannon - resources.cooling + 8 <= 64
-            } else { false }
+            } else {
+                false
+            }
         }
         fn little_cooling(ship: &Ship) -> bool {
             if let Some(resources) = &ship.resources {
                 resources.cooling <= 16
-            } else { true }
+            } else {
+                true
+            }
         }
         let our_role = our_role(&game_response).unwrap();
         let our_ship = find_ship(&game_response, our_role).unwrap();
@@ -209,16 +214,24 @@ impl AI for Shoot {
 
         let (gx, gy) = gravity(our_ship.position);
 
-        let mut cmds = vec!(Command::Accelerate(our_ship.ship_id, (gx, gy)));
+        let mut cmds = vec![Command::Accelerate(our_ship.ship_id, (gx, gy))];
 
         for target in opp_ships {
             if close_enough(our_ship, target) && cold(our_ship) && little_cooling(target) {
                 let target_gravity = gravity(target.position);
-                let (target_vx, target_vy) = (target.velocity.0 + target_gravity.0, target.velocity.1 + target_gravity.1);
-                let (target_x, target_y) = (target.position.0 + target_vx, target.position.1 + target_vy);
+                let (target_vx, target_vy) = (
+                    target.velocity.0 + target_gravity.0,
+                    target.velocity.1 + target_gravity.1,
+                );
+                let (target_x, target_y) =
+                    (target.position.0 + target_vx, target.position.1 + target_vy);
 
                 if let Some(resources) = &our_ship.resources {
-                    cmds.push(Command::Shoot(our_ship.ship_id, (target_x, target_y), resources.cannon));
+                    cmds.push(Command::Shoot(
+                        our_ship.ship_id,
+                        (target_x, target_y),
+                        resources.cannon,
+                    ));
                 }
                 break;
             }
@@ -242,6 +255,8 @@ impl AI for Orbiting {
     }
 
     fn step(&mut self, game_response: &GameResponse) -> Vec<Command> {
+        use crate::protocol::Role::*;
+
         /// std::i64::MAX if it doesn't crash
         fn goodness_of_drift_from(sv: &sim::SV, planet_radius: i64) -> i64 {
             let mut last_pos = sv.s;
@@ -255,6 +270,10 @@ impl AI for Orbiting {
             }
             std::i64::MAX
         }
+        fn within_detonation_range(ship1: &Ship, ship2: &Ship) -> bool {
+            (ship1.position.0 - ship2.position.0).abs() <= DETONATION_RADIUS
+                && (ship1.position.1 - ship2.position.1).abs() <= DETONATION_RADIUS
+        }
         match (&game_response.static_game_info, &game_response.game_state) {
             (Some(static_game_info), Some(game_state)) => {
                 let our_role = static_game_info.role;
@@ -263,6 +282,11 @@ impl AI for Orbiting {
                     .iter()
                     .find(|&ship| ship.role == our_role)
                     .unwrap();
+                let opp_ships : Vec<&Ship> = game_state
+                    .ships
+                    .iter()
+                    .filter(|ship| ship.role != our_role)
+                    .collect();
 
                 let sv = sim::SV {
                     s: our_ship.position.into(),
@@ -280,7 +304,12 @@ impl AI for Orbiting {
                         best_thrust = thrust;
                     }
                 }
-                if best_thrust == (sim::XY { x: 0, y: 0 }) {
+                if opp_ships.len() == 1
+                    && our_role == Attacker
+                    && within_detonation_range(our_ship, opp_ships[0])
+                {
+                    vec![Command::Detonate(our_ship.ship_id)]
+                } else if best_thrust == (sim::XY { x: 0, y: 0 }) {
                     vec![]
                 } else {
                     vec![Command::Accelerate(our_ship.ship_id, best_thrust.into())]
