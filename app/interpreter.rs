@@ -30,7 +30,7 @@ impl Env {
 
     fn get_and_reduce(&mut self, v: Var) -> WorkTree {
         use VarTree::*;
-        match self.m.get(&v) {
+        match self.m.get(&v) { // TODO: Entry API
             Some(Open(aptree)) => {
                 let wtree = reduce_left_loop(&aptree.clone(), self);
                 self.m.insert(v, Reduced(wtree.clone()));
@@ -89,7 +89,7 @@ fn reduce_tree(tree: &ApTree, env: &mut Env) -> Reduction {
     use Reduction::*;
     use WorkTree::*;
 
-    match &tree {
+    match tree {
         T(Token::V(v)) => Step(env.get_and_reduce(*v)),
         T(token) => Id(WorkT(token.clone())),
         Ap(body) => {
@@ -107,12 +107,12 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
     use Token::*;
     use WorkTree::*;
 
-    match &wtree {
+    match wtree {
         WorkT(_) => Id(wtree),
 
         // Unary functions
         Ap1(Nil, _) => Step(WorkT(Token::True)),
-        Ap1(fun, arg) if is_eager_fun1(fun) => match (fun, reduce_left_loop(&arg, env)) {
+        Ap1(fun, arg) if is_eager_fun1(&fun) => match (fun, reduce_left_loop(&arg, env)) {
             (Inc, WorkT(Int(n))) => Step(WorkT(Int(n + 1))),
             (Dec, WorkT(Int(n))) => Step(WorkT(Int(n - 1))),
             (Neg, WorkT(Int(n))) => Step(WorkT(Int(-n))),
@@ -140,7 +140,7 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
         | Ap1(Cons, _) => Id(wtree),
 
         // Binary functions
-        Ap2(fun, left, right) if is_eager_fun2(fun) => {
+        Ap2(fun, left, right) if is_eager_fun2(&fun) => {
             match (
                 fun,
                 reduce_left_loop(&left, env),
@@ -170,17 +170,17 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
 
         Ap3(S, x, y, z) => {
             let zvar = env.fresh_var();
-            env.insert(zvar, z.clone());
-            let xz = reduce_left_loop(&ap(x.clone(), ApTree::T(V(zvar))), env);
-            Step(explicit_ap(xz, ap(y.clone(), ApTree::T(V(zvar)))))
+            env.insert(zvar, z);
+            let xz = reduce_left_loop(&ap(x, ApTree::T(V(zvar))), env);
+            Step(explicit_ap(xz, ap(y, ApTree::T(V(zvar)))))
         }
         Ap3(C, x, y, z) => {
-            let xz = reduce_left_loop(&ap(x.clone(), z.clone()), env);
-            Step(explicit_ap(xz, y.clone()))
+            let xz = reduce_left_loop(&ap(x, z), env);
+            Step(explicit_ap(xz, y))
         }
         Ap3(B, x, y, z) => {
             let x = reduce_left_loop(&x, env);
-            Step(explicit_ap(x, ap(y.clone(), z.clone())))
+            Step(explicit_ap(x, ap(y, z)))
         }
         Ap3(If0, cond, left, right) => {
             match reduce_left_loop(&cond, env) {
@@ -196,8 +196,8 @@ fn reduce_one(wtree: WorkTree, env: &mut Env) -> Reduction {
 
         Ap3(Cons, x, y, z) => {
             // ap ap ap cons x0 x1 x2   =   ap ap x2 x0 x1
-            let zx = reduce_left_loop(&ap(z.clone(), x.clone()), env);
-            Step(explicit_ap(zx, y.clone()))
+            let zx = reduce_left_loop(&ap(z, x), env);
+            Step(explicit_ap(zx, y))
         }
 
         e => panic!("Unimplemented: {:#?}", e),
