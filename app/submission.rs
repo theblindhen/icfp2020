@@ -416,32 +416,41 @@ impl AI for CloneController {
 
         let mut orbiter = Orbiting{};
         let mut cmds = orbiter.step(ships, &game_response);
-        for ship in ships {
-            if let Some(resources) = &ship.resources {
-                if resources.clones > 1 {
-                    if our_role == Role::Defender {
-                         const FIRST_CLONE : u32 = 0;
-                        const WAIT_MORE_CLONES : u32 = 10; // TODO: Think
-                        if (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > WAIT_MORE_CLONES) {
-                            clones += 1;
-                            cmds.push(Command::Clone {
-                                ship_id: ship.ship_id,
-                                fuel: resources.fuel/2,
-                                cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
-                                cooling: resources.cooling/2,
-                                clones: resources.clones/2, //Is at least 1
-                            })
-                        }
-                    } else {
-                        // Attacker
-                        const WAIT_DRONE_CLONES : u32 = 10; // TODO: Think
-                        // Is there a decent move so we can get away from our clone?
-                        if let Some(sgi) = &game_response.static_game_info {
+        if let Some(sgi) = &game_response.static_game_info {
+            for ship in ships {
+                if let Some(resources) = &ship.resources {
+                    if resources.clones > 1 {
+                        if our_role == Role::Defender {
+                            const FIRST_CLONE : u32 = 0;
+                            const WAIT_MORE_CLONES : u32 = 10; // TODO: Think
+                            if (clones == 1 && self.turns > FIRST_CLONE) || (self.turns > WAIT_MORE_CLONES) {
+                                let sv = sim::SV {
+                                    s: ship.position.into(),
+                                    v: ship.velocity.into(),
+                                };
+                                let (nonzero_thrust, nonzero_measure)
+                                    = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
+                                if nonzero_measure == i64::MAX {// Will we survive?
+                                    clones += 1;
+                                    cmds.push(Command::Clone {
+                                        ship_id: ship.ship_id,
+                                        fuel: resources.fuel/2,
+                                        cannon: resources.cannon/2, //TODO: Better to keep cannons on one ship?
+                                        cooling: resources.cooling/2,
+                                        clones: resources.clones/2, //Is at least 1
+                                    });
+                                    cmds.push(Command::Accelerate(ship.ship_id, nonzero_thrust.into()));
+                                }
+                            }
+                        } else {
+                            // Attacker
+                            const WAIT_DRONE_CLONES : u32 = 10; // TODO: Think
+                            // Is there a decent move so we can get away from our clone?
                             let sv = sim::SV {
                                 s: ship.position.into(),
                                 v: ship.velocity.into(),
                             };
-                            if sim::survives_drift(&sv, sgi.planet_radius) > 50 { // Will the clone survive?
+                            if sim::survives_drift(&sv, sgi.planet_radius) > 25 { // Will the clone survive?
                                 let (nonzero_thrust, nonzero_measure)
                                     = Orbiting::get_best_nonzero_thrust(&sv, sgi.planet_radius);
                                 if nonzero_measure == i64::MAX {// Will we survive?
